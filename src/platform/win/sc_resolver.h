@@ -67,6 +67,7 @@ struct ResolvedAddrs {
     uint32_t cpbBodyOff;                  // CProtoBufMsgBase -> protobuf body object ptr
 
     // ── KV Injector ────────────────────────────────────────────────────
+    uintptr_t kvEngine;                   // &g_pCSteamEngine as used at GetAppInfo call sites
     uintptr_t getAppInfo;                 // CAppInfoCache::GetAppInfo
     uintptr_t getSection;                 // CAppInfoCache::GetSection
     uintptr_t readConfigU64;              // CAppInfoCache::ReadAppConfigUint64
