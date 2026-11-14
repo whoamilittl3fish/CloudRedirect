@@ -2,6 +2,9 @@
 
 ""Steam Cloud"" for 'lua' games.
 
+> **This is a fork of [Selectively11/CloudRedirect](https://github.com/Selectively11/CloudRedirect) maintained by [DumbCodeGenerator](https://github.com/DumbCodeGenerator).** Releases, bug reports and update checks for this build point at this repository.
+
+
 **This the only official source for CloudRedirect. Any other websites are not operated by me or are otherwise endorsed by this project. At least one of those fake sites was actively distributing malware!**
 
 > ****This software is experimental and under active development.**** The underlying techniques are fairly insane. What this software tries to do is nuts to attempt. This software could damage your save files and probably will! It could overwrite your saves, cause weird conflicts, make your saves disappear, make you cry. Back up any saves you care about before using this software.
@@ -45,7 +48,7 @@ With more to come over time.
 
 ## Usage (Windows)
 
-Grab the latest release from the [Releases page](https://github.com/Selectively11/CloudRedirect/releases).
+Grab the latest release from the [Releases page](https://github.com/DumbCodeGenerator/CloudRedirect/releases).
 
 Run the EXE. Pick your mode - STfixer mode for fixes to ST bugs, CloudRedirect mode for the good stuff. In Setup, hit 'Run All Patches'. Go to the Cloud Provider tab, select your provider. If it is a cloud provider, sign in to it.
 

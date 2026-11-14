@@ -388,6 +388,8 @@ static std::atomic<bool> g_resolverRan{false};
 // No hardcoded fallback — a wrong RVA causes silent corruption or crashes.
 #define SC_RESOLVE(field) (g_resolved.field)
 
+static bool LuaToolsForkMarkerPresent();
+
 static void RunAutoResolver() {
     if (g_resolverRan.exchange(true)) return;
     if (!g_steamClientBase) {
@@ -397,6 +399,8 @@ static void RunAutoResolver() {
     }
     g_resolved = ScResolver::Resolve(g_steamClientBase);
     ScResolver::LogComparison(g_resolved, g_steamClientBase);
+    if (!LuaToolsForkMarkerPresent())
+        LOG("[VtHook] LuaTools fork marker missing; LuaTools may replace this DLL");
 
     // Seed the CProtoBufMsg layout shift from the resolver. Detection walks the
     // base ctor's connection-handle sentinel, so conn is BASE_CONN or
@@ -3964,6 +3968,20 @@ static std::string ComputeFileSHA256(const std::string& path) {
     return result;
 }
 
+// ── LuaTools compatibility marker ──────────────────────────────────────
+// madoiscool/LuaTools rewrites cloud_redirect.dll in the Steam root on every
+// launch unless the file contains this exact UTF-16 string (its
+// UnlockerService.IsForkBuild check). Keep the marker so LuaTools leaves this
+// fork's DLL alone; the updater below still targets our own repository.
+static constexpr wchar_t kLuaToolsForkMarker[] =
+    L"/repos/madoiscool/CloudRedirect/releases";
+
+static bool LuaToolsForkMarkerPresent() {
+    // Volatile read keeps the literal in the binary even at /O2.
+    static volatile const wchar_t* const marker = kLuaToolsForkMarker;
+    return marker != nullptr && marker[0] == L'/';
+}
+
 static void TryAutoUpdateDll() {
     LOG("[AutoUpdate] Checking for DLL update (local version: %s)...", CR_RELEASE_VERSION);
 
@@ -3986,7 +4004,7 @@ static void TryAutoUpdateDll() {
     }
 
     HINTERNET hReq = WinHttpOpenRequest(hConn, L"GET",
-        L"/repos/Selectively11/CloudRedirect/releases",
+        L"/repos/DumbCodeGenerator/CloudRedirect/releases",
         nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES,
         WINHTTP_FLAG_SECURE);
     if (!hReq) {

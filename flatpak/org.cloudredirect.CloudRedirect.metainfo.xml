@@ -17,10 +17,10 @@
   
   <launchable type="desktop-id">org.cloudredirect.CloudRedirect.desktop</launchable>
   
-  <url type="homepage">https://github.com/Selectively11/CloudRedirect-Unified</url>
-  <url type="bugtracker">https://github.com/Selectively11/CloudRedirect-Unified/issues</url>
+  <url type="homepage">https://github.com/DumbCodeGenerator/CloudRedirect</url>
+  <url type="bugtracker">https://github.com/DumbCodeGenerator/CloudRedirect/issues</url>
   
-  <developer_name>Selectively11</developer_name>
+  <developer_name>DumbCodeGenerator</developer_name>
   
   <provides>
     <binary>cloud-redirect-ui</binary>
