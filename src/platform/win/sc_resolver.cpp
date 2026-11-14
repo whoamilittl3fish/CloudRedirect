@@ -1313,7 +1313,7 @@ ResolvedAddrs Resolve(uintptr_t steamClientBase) {
 void LogComparison(const ResolvedAddrs& r, uintptr_t base) {
     LOG("[Resolver] === Comparison (resolved RVA vs expected) ===");
 
-    int total = 0, matched = 0, failed = 0;
+    int total = 0, matched = 0, failed = 0, retired = 0;
     auto logEntry = [&](const char* name, uintptr_t resolved, uintptr_t expectedRva) {
         total++;
         if (resolved) {
@@ -1327,48 +1327,68 @@ void LogComparison(const ResolvedAddrs& r, uintptr_t base) {
             LOG("[Resolver]   %-30s FAILED (expected 0x%llX)", name, (uint64_t)expectedRva);
         }
     };
+    // For features Steam has dropped: absence is expected, not resolver drift.
+    auto logRetired = [&](const char* name, uintptr_t resolved, uintptr_t expectedRva) {
+        total++;
+        if (resolved) {
+            uintptr_t resolvedRva = resolved - base;
+            bool match = (resolvedRva == expectedRva);
+            if (match) matched++;
+            LOG("[Resolver]   %-30s 0x%llX  %s",
+                name, (uint64_t)resolvedRva, match ? "OK" : "MISMATCH");
+        } else {
+            retired++;
+            LOG("[Resolver]   %-30s RETIRED (absent in this build; expected 0x%llX)",
+                name, (uint64_t)expectedRva);
+        }
+    };
 
-    // Expected RVAs for steamclient64.dll build 11.12.30.07 (Steam version 1791918634).
+    // Expected RVAs for steamclient64.dll build 11.23.65.88.
     // Update these whenever the target build changes so genuine resolver drift is
     // reported as MISMATCH instead of being masked by stale values.
-    logEntry("CCMInterface VT",        r.ccmInterfaceVtable,      0x12B4AE8);
-    logEntry("ServiceTransport VT",    r.serviceTransportVtable,  0x1292150);
-    logEntry("GlobalEngine",           r.globalEngine,            0x181D008);
-    logEntry("ParseFromArray",         r.parseFromArray,          0xBEEC40);
-    logEntry("SerializeToArray",       r.serializeToArray,        0xBEF050);
-    logEntry("WrapPacket",             r.wrapPacket,              0xD24E40);
-    logEntry("BRouteMsgToJob",         r.bRouteMsgToJob,          0xD30A10);
-    logEntry("ReleaseWrapped",         r.releaseWrapped,          0x0ED4A0);
-    logEntry("RefCountHelper",         r.refCountHelper,          0xDEFBC0);
-    logEntry("FindJob",                r.findJob,                 0xD33600);
-    logEntry("RefCountGlobal",         r.refCountGlobal,          0x18083D8);
-    logEntry("JobCurGlobal",           r.jobCurGlobal,            0x183A5B0);
-    logEntry("BuildDepotDependency",   r.buildDepotDependency,    0x4D75C0);
-    logEntry("GetAppMinutesPlayed",    r.getAppMinutesPlayedData, 0x9E2510);
-    logEntry("FlushAppMinutesPlayed",  r.flushAppMinutesPlayed,   0x9F2C20);
-    logEntry("SetAppLastPlayedTime",   r.setAppLastPlayedTime,    0x9F5A50);
-    logEntry("KvFindKey",              r.kvFindKey,               0xD27910);
-    logEntry("KvGetUint64",            r.kvGetUint64,             0xD28CC0);
-    logEntry("KvGetInt",               r.kvGetInt,                0xD28870);
-    logEntry("KvSetUint64",            r.kvSetUint64,             0xD28F30);
-    logEntry("KvSetInt",               r.kvSetInt,                0xD28F70);
-    logEntry("KvSetString",            r.kvSetString,             0xD28FB0);
-    logEntry("GetAppInfo",             r.getAppInfo,              0x4C8440);
-    logEntry("GetSection",             r.getSection,              0x4CA770);
-    logEntry("ReadConfigU64",          r.readConfigU64,           0x4C94B0);
-    logEntry("BAsyncSend",             r.bAsyncSend,              0xD1CBB0);
-    logEntry("PlaytimeWriter",         r.playtimeWriter,          0x9EED70);
-    logEntry("PbMsgCtor",              r.pbMsgCtor,               0xD1C350);
-    logEntry("PbMsgFinalize",          r.pbMsgFinalize,           0xD21D50);
-    logEntry("PbMsgCleanup",           r.pbMsgCleanup,            0xD1C760);
-    logEntry("YieldIfTimeSlice",       r.yieldIfTimeSlice,        0xD118B0);
-    logEntry("GetUserStatsVtable",     r.getUserStatsVtable,      0x13841A8);
-    logEntry("GetUserStatsDesc",       r.getUserStatsDesc,        0x173E9A0);
-    logEntry("RespWrapperVtable",      r.respWrapperVtable,       0x1370C50);
-    logEntry("RespDescriptor",         r.respDescriptor,          0x171AEF0);
-    logEntry("RegKeySyncTime",         r.regKeySyncTime,          0x172DE68);
+    logEntry("CCMInterface VT",        r.ccmInterfaceVtable,      0x12E34A8);
+    logEntry("ServiceTransport VT",    r.serviceTransportVtable,  0x12C0980);
+    logEntry("GlobalEngine",           r.globalEngine,            0x18556E8);
+    logEntry("ParseFromArray",         r.parseFromArray,          0xC15B10);
+    logEntry("SerializeToArray",       r.serializeToArray,        0xC15F20);
+    logEntry("WrapPacket",             r.wrapPacket,              0xD4BEC0);
+    logEntry("BRouteMsgToJob",         r.bRouteMsgToJob,          0xD53A40);
+    logEntry("ReleaseWrapped",         r.releaseWrapped,          0x0ED780);
+    logEntry("RefCountHelper",         r.refCountHelper,          0xE1ABB0);
+    logEntry("FindJob",                r.findJob,                 0xD56690);
+    logEntry("RefCountGlobal",         r.refCountGlobal,          0x1840778);
+    logEntry("JobCurGlobal",           r.jobCurGlobal,            0x1872C30);
+    logEntry("BuildDepotDependency",   r.buildDepotDependency,    0x4ED110);
+    logEntry("GetAppMinutesPlayed",    r.getAppMinutesPlayedData, 0xA07550);
+    logEntry("FlushAppMinutesPlayed",  r.flushAppMinutesPlayed,   0xA17E10);
+    logEntry("SetAppLastPlayedTime",   r.setAppLastPlayedTime,    0xA1AC90);
+    logEntry("KvFindKey",              r.kvFindKey,               0xD9EBF0);
+    logEntry("KvGetUint64",            r.kvGetUint64,             0xD9FFA0);
+    logEntry("KvGetInt",               r.kvGetInt,                0xD9FB50);
+    logEntry("KvSetUint64",            r.kvSetUint64,             0xDA0210);
+    logEntry("KvSetInt",               r.kvSetInt,                0xDA0250);
+    logEntry("KvSetString",            r.kvSetString,             0xDA0290);
+    logEntry("GetAppInfo",             r.getAppInfo,              0x4DDA10);
+    logEntry("GetSection",             r.getSection,              0x4DFD40);
+    logEntry("ReadConfigU64",          r.readConfigU64,           0x4DEA90);
+    logEntry("BAsyncSend",             r.bAsyncSend,              0xD43B50);
+    logEntry("PlaytimeWriter",         r.playtimeWriter,          0xA13E40);
+    logEntry("PbMsgCtor",              r.pbMsgCtor,               0xD43300);
+    logEntry("PbMsgFinalize",          r.pbMsgFinalize,           0xD48DC0);
+    logEntry("PbMsgCleanup",           r.pbMsgCleanup,            0xD43700);
+    logEntry("YieldIfTimeSlice",       r.yieldIfTimeSlice,        0xD383F0);
+    // CProtoBufMsg<CMsgClientGetUserStats> is no longer instantiated in
+    // steamclient 11.23.65.88 (Steam moved stats to the service RPC path), so
+    // the legacy-818 schema fetch cannot run there. Keep resolving it for older
+    // builds, but do not count its absence as a failure.
+    logRetired("GetUserStatsVtable",   r.getUserStatsVtable,      0x13841A8);
+    logEntry("GetUserStatsDesc",       r.getUserStatsDesc,        0x1774980);
+    logEntry("RespWrapperVtable",      r.respWrapperVtable,       0x139F8B8);
+    logEntry("RespDescriptor",         r.respDescriptor,          0x1750468);
+    logEntry("RegKeySyncTime",         r.regKeySyncTime,          0x1763DA8);
 
-    LOG("[Resolver] Result: %d/%d matched, %d failed", matched, total, failed);
+    LOG("[Resolver] Result: %d/%d matched, %d failed, %d retired",
+        matched, total, failed, retired);
 }
 
 } // namespace ScResolver
