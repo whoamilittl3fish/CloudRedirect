@@ -6,6 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # ── Read version from Version.props ─────────────────────────────────────
+# Version.props is not a CMake source file, so without an explicit configure
+# dependency a version bump would keep the previously configured
+# CR_RELEASE_VERSION (the DLL banner and update checks would log a stale
+# BUILD:2.6.x). Force a reconfigure whenever the props file changes.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+    "${CMAKE_SOURCE_DIR}/Version.props")
 file(READ "${CMAKE_SOURCE_DIR}/Version.props" VERSION_PROPS_CONTENT)
 string(REGEX MATCH "<ReleaseVersion>([^<]+)</ReleaseVersion>" _ "${VERSION_PROPS_CONTENT}")
 set(CR_RELEASE_VERSION "${CMAKE_MATCH_1}")
