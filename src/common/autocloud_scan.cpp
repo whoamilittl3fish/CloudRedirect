@@ -6,6 +6,8 @@
 #include "vdf.h"
 #ifdef _WIN32
 #include <ShlObj.h>
+#include <winioctl.h>
+#include <cstddef>
 #pragma comment(lib, "Shell32.lib")
 #else
 #include <cstdlib>
@@ -13,6 +15,7 @@
 #include <pwd.h>
 #endif
 #include <algorithm>
+#include <cctype>
 #include <chrono>
 #include <cstring>
 #include <fstream>
@@ -602,6 +605,250 @@ static std::vector<uint8_t> ReadAndHashFile(const std::string& path,
     return sha;
 }
 
+// ── Ticket-owner save folders ───────────────────────────────────────────
+// A lua app unlocked with someone else's ownership ticket runs as that account:
+// the game writes {64BitSteamID}/{Steam3AccountID} save folders for the ticket
+// owner, while Steam's AutoCloud (and this scanner) expand the tokens for the
+// signed-in account. Nothing uploads. When it is safe, link the ticket owner's
+// folder to the scanned one so both sides see the same files.
+
+// Account id of the ticket owner from setAppTicket(appId,"<hex>") in
+// config/stplug-in/*.lua, or 0. Bytes 8..15 of the ownership ticket hold the
+// owner SteamID64 (little endian). Cached briefly; lua files rarely change.
+[[maybe_unused]] uint32_t GetTicketOwnerAccountId(const std::string& steamPath, uint32_t appId) {
+    using Clock = std::chrono::steady_clock;
+    static std::mutex cacheMutex;
+    static std::unordered_map<uint32_t, std::pair<uint32_t, Clock::time_point>> cache;
+    const auto now = Clock::now();
+    {
+        std::lock_guard<std::mutex> lock(cacheMutex);
+        auto it = cache.find(appId);
+        if (it != cache.end() && now - it->second.second < std::chrono::seconds(60))
+            return it->second.first;
+    }
+
+    uint32_t owner = 0;
+    const std::filesystem::path dir =
+        FileUtil::Utf8ToPath(steamPath) / "config" / "stplug-in";
+    const std::string needle = "setAppTicket(";
+    std::error_code ec;
+    for (std::filesystem::directory_iterator it(dir, ec), end;
+         !ec && it != end && owner == 0; it.increment(ec)) {
+        std::error_code fec;
+        if (!it->is_regular_file(fec) || fec) continue;
+        if (ToLowerAscii(FileUtil::PathToUtf8(it->path().extension())) != ".lua") continue;
+        if (it->file_size(fec) > 4u * 1024u * 1024u || fec) continue;
+        std::ifstream in(it->path(), std::ios::binary);
+        std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+
+        for (size_t pos = text.find(needle); pos != std::string::npos && owner == 0;
+             pos = text.find(needle, pos + 1)) {
+            size_t p = pos + needle.size();
+            auto skipSpace = [&]() { while (p < text.size() && isspace((unsigned char)text[p])) ++p; };
+            skipSpace();
+            uint64_t id = 0;
+            size_t digits = 0;
+            while (p < text.size() && isdigit((unsigned char)text[p]) && digits < 10) {
+                id = id * 10 + (uint64_t)(text[p] - '0');
+                ++p; ++digits;
+            }
+            if (digits == 0 || id != appId) continue;
+            skipSpace();
+            if (p >= text.size() || text[p] != ',') continue;
+            ++p;
+            skipSpace();
+            if (p >= text.size() || text[p] != '"') continue;
+            ++p;
+            size_t hexStart = p;
+            while (p < text.size() && isxdigit((unsigned char)text[p])) ++p;
+            if (p - hexStart < 32) continue;
+            uint64_t sid = 0;
+            for (int i = 7; i >= 0; --i) {
+                sid = (sid << 8) | (uint64_t)std::stoul(text.substr(hexStart + 16 + 2 * i, 2), nullptr, 16);
+            }
+            // Individual account in the public universe only; anything else is not a ticket.
+            if ((sid >> 32) == 0x01100001u) owner = (uint32_t)(sid & 0xFFFFFFFFu);
+        }
+    }
+
+    std::lock_guard<std::mutex> lock(cacheMutex);
+    cache[appId] = {owner, now};
+    return owner;
+}
+
+#ifdef _WIN32
+struct CrMountPointReparseBuffer {
+    DWORD ReparseTag;
+    WORD  ReparseDataLength;
+    WORD  Reserved;
+    WORD  SubstituteNameOffset;
+    WORD  SubstituteNameLength;
+    WORD  PrintNameOffset;
+    WORD  PrintNameLength;
+    WCHAR PathBuffer[1];
+};
+
+static std::wstring TrimTrailingSeparators(std::wstring s) {
+    while (s.size() > 3 && (s.back() == L'\\' || s.back() == L'/')) s.pop_back();
+    return s;
+}
+
+static bool SameDirectory(const std::wstring& a, const std::wstring& b) {
+    std::wstring x = TrimTrailingSeparators(std::filesystem::path(a).lexically_normal().wstring());
+    std::wstring y = TrimTrailingSeparators(std::filesystem::path(b).lexically_normal().wstring());
+    return CompareStringOrdinal(x.c_str(), -1, y.c_str(), -1, TRUE) == CSTR_EQUAL;
+}
+
+// Target of a junction (mount point), without the \??\ prefix.
+static bool ReadJunctionTarget(const std::filesystem::path& link, std::wstring& out) {
+    HANDLE h = CreateFileW(link.c_str(), FILE_READ_ATTRIBUTES,
+                           FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE, nullptr,
+                           OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+                           nullptr);
+    if (h == INVALID_HANDLE_VALUE) return false;
+    std::vector<BYTE> buf(MAXIMUM_REPARSE_DATA_BUFFER_SIZE);
+    DWORD got = 0;
+    BOOL ok = DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, nullptr, 0,
+                              buf.data(), (DWORD)buf.size(), &got, nullptr);
+    CloseHandle(h);
+    const size_t header = offsetof(CrMountPointReparseBuffer, PathBuffer);
+    if (!ok || got < header) return false;
+    auto* rb = reinterpret_cast<const CrMountPointReparseBuffer*>(buf.data());
+    if (rb->ReparseTag != IO_REPARSE_TAG_MOUNT_POINT) return false;
+    if (header + (size_t)rb->SubstituteNameOffset + rb->SubstituteNameLength > got) return false;
+    out.assign(rb->PathBuffer + rb->SubstituteNameOffset / sizeof(WCHAR),
+               rb->SubstituteNameLength / sizeof(WCHAR));
+    if (out.rfind(L"\\??\\", 0) == 0) out.erase(0, 4);
+    return true;
+}
+
+// Create an empty directory `link` and turn it into a junction to `target`.
+static bool CreateJunction(const std::filesystem::path& link, const std::filesystem::path& target,
+                           DWORD& err) {
+    err = 0;
+    std::wstring tgt = TrimTrailingSeparators(target.lexically_normal().wstring());
+    std::wstring sub = L"\\??\\" + tgt;
+    const size_t pathBytes = (sub.size() + 1 + tgt.size() + 1) * sizeof(WCHAR);
+    const size_t header = offsetof(CrMountPointReparseBuffer, PathBuffer);
+    if (header + pathBytes > MAXIMUM_REPARSE_DATA_BUFFER_SIZE) { err = ERROR_FILENAME_EXCED_RANGE; return false; }
+
+    if (!CreateDirectoryW(link.c_str(), nullptr)) { err = GetLastError(); return false; }
+    HANDLE h = CreateFileW(link.c_str(), GENERIC_WRITE, 0, nullptr, OPEN_EXISTING,
+                           FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT, nullptr);
+    if (h == INVALID_HANDLE_VALUE) {
+        err = GetLastError();
+        RemoveDirectoryW(link.c_str());
+        return false;
+    }
+    std::vector<BYTE> buf(header + pathBytes, 0);
+    auto* rb = reinterpret_cast<CrMountPointReparseBuffer*>(buf.data());
+    rb->ReparseTag = IO_REPARSE_TAG_MOUNT_POINT;
+    rb->ReparseDataLength = (WORD)(header - 8 + pathBytes);
+    rb->SubstituteNameOffset = 0;
+    rb->SubstituteNameLength = (WORD)(sub.size() * sizeof(WCHAR));
+    rb->PrintNameOffset = (WORD)((sub.size() + 1) * sizeof(WCHAR));
+    rb->PrintNameLength = (WORD)(tgt.size() * sizeof(WCHAR));
+    memcpy(rb->PathBuffer, sub.c_str(), (sub.size() + 1) * sizeof(WCHAR));
+    memcpy(rb->PathBuffer + sub.size() + 1, tgt.c_str(), (tgt.size() + 1) * sizeof(WCHAR));
+    DWORD ret = 0;
+    BOOL ok = DeviceIoControl(h, FSCTL_SET_REPARSE_POINT, buf.data(), (DWORD)buf.size(),
+                              nullptr, 0, &ret, nullptr);
+    if (!ok) err = GetLastError();
+    CloseHandle(h);
+    if (!ok) RemoveDirectoryW(link.c_str());
+    return ok != FALSE;
+}
+
+// Never moves or deletes save data: a ticket-owner folder that holds files is
+// left alone with a log line; only a missing or empty one becomes a junction.
+static void MaybeLinkTicketOwnerSaveDir(const std::string& steamPath, uint32_t appId,
+                                        uint32_t accountId, const std::string& resolvedPathRaw,
+                                        const std::string& rootDir,
+                                        const std::filesystem::path& realDir) {
+    const uint32_t owner = GetTicketOwnerAccountId(steamPath, appId);
+    if (owner == 0 || owner == accountId) return;
+
+    std::string realRel = ExpandAutoCloudPathTokens(NormalizeSlashes(resolvedPathRaw), accountId);
+    std::string ownerRel = ExpandAutoCloudPathTokens(NormalizeSlashes(resolvedPathRaw), owner);
+    if (realRel == ownerRel) return;  // rule has no account token
+    if (!IsSafeRelativePath(ownerRel)) return;
+
+    std::filesystem::path ownerDir = FileUtil::Utf8ToPath(rootDir);
+    {
+        std::stringstream ss(ownerRel);
+        std::string part;
+        while (std::getline(ss, part, '/'))
+            if (!part.empty() && part != ".") ownerDir /= FileUtil::Utf8ToPath(part);
+    }
+    const std::string ownerUtf8 = FileUtil::PathToUtf8(ownerDir);
+    const std::string realUtf8 = FileUtil::PathToUtf8(realDir);
+
+    static std::mutex noticeMutex;
+    static std::unordered_set<std::string> noticed;
+    auto noticeOnce = [&](const char* what) {
+        std::lock_guard<std::mutex> lock(noticeMutex);
+        if (!noticed.insert(ownerUtf8 + "|" + what).second) return false;
+        return true;
+    };
+
+    if (FileUtil::IsPathRedirectingReparsePoint(realUtf8)) {
+        if (noticeOnce("real-link"))
+            LOG("[TicketLink] app %u: scanned folder is itself a link, not linking: %s",
+                appId, realUtf8.c_str());
+        return;
+    }
+
+    std::error_code ec;
+    if (FileUtil::IsPathRedirectingReparsePoint(ownerUtf8)) {
+        std::wstring target;
+        if (ReadJunctionTarget(ownerDir, target) && SameDirectory(target, realDir.wstring())) return;
+        if (noticeOnce("other-link"))
+            LOG("[TicketLink] app %u: ticket-owner folder already links elsewhere, leaving it: %s",
+                appId, ownerUtf8.c_str());
+        return;
+    }
+
+    if (std::filesystem::exists(ownerDir, ec) && !ec) {
+        if (!std::filesystem::is_directory(ownerDir, ec) || ec) return;
+        std::filesystem::directory_iterator it(ownerDir, ec);
+        if (ec) return;
+        if (it != std::filesystem::directory_iterator()) {
+            if (noticeOnce("has-files"))
+                LOG("[TicketLink] app %u: game saves under ticket account %u are not synced and "
+                    "were left untouched: %s -- merge them into %s and replace the folder with a "
+                    "junction (SaveLinkAll.ps1 does this)",
+                    appId, owner, ownerUtf8.c_str(), realUtf8.c_str());
+            return;
+        }
+        if (!RemoveDirectoryW(ownerDir.c_str())) {
+            LOG("[TicketLink] app %u: could not remove empty folder %s (err=%lu)",
+                appId, ownerUtf8.c_str(), GetLastError());
+            return;
+        }
+    }
+
+    std::filesystem::create_directories(realDir, ec);
+    if (ec) {
+        LOG("[TicketLink] app %u: could not create %s: %s", appId, realUtf8.c_str(), ec.message().c_str());
+        return;
+    }
+    std::filesystem::create_directories(ownerDir.parent_path(), ec);
+    if (ec) {
+        LOG("[TicketLink] app %u: could not create %s: %s", appId,
+            FileUtil::PathToUtf8(ownerDir.parent_path()).c_str(), ec.message().c_str());
+        return;
+    }
+    DWORD err = 0;
+    if (CreateJunction(ownerDir, realDir, err)) {
+        LOG("[TicketLink] app %u: linked %s -> %s (ticket account %u, signed-in account %u)",
+            appId, ownerUtf8.c_str(), realUtf8.c_str(), owner, accountId);
+    } else {
+        LOG("[TicketLink] app %u: junction %s -> %s failed (err=%lu)",
+            appId, ownerUtf8.c_str(), realUtf8.c_str(), err);
+    }
+}
+#endif  // _WIN32
+
 } // anonymous namespace
 
 // Public API
@@ -954,6 +1201,13 @@ ScanResult GetFileList(const std::string& steamPath,
             }
             scanRoot /= rel;
         }
+
+#ifdef _WIN32
+        // Ticket-owner save folder -> scanned folder, before the existence check so
+        // a folder the link just created is walked in this same scan.
+        MaybeLinkTicketOwnerSaveDir(steamPath, appId, accountId, rule.resolvedPath,
+                                    mapping->envExpansion, scanRoot);
+#endif
 
         std::error_code scanRootEc;
         if (!std::filesystem::exists(scanRoot, scanRootEc) || scanRootEc ||
