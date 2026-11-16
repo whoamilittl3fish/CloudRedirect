@@ -473,6 +473,37 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
 endif()
 
 # Individually-guarded tests, so a partial tests/ tree still builds.
+if(EXISTS ${CMAKE_SOURCE_DIR}/tests/stats_reset_tests.cpp
+   AND NOT TARGET stats_reset_tests)
+    add_executable(stats_reset_tests
+        tests/stats_reset_tests.cpp
+        src/common/stats_store.cpp
+        src/common/json.cpp
+        src/common/metadata_sync.cpp
+        src/common/vdf.cpp
+    )
+    target_include_directories(stats_reset_tests PRIVATE src/common)
+    target_compile_definitions(stats_reset_tests PRIVATE
+        CR_RELEASE_VERSION="${CR_RELEASE_VERSION}")
+    if(WIN32)
+        target_include_directories(stats_reset_tests PRIVATE src/platform/win)
+        target_sources(stats_reset_tests PRIVATE
+            src/platform/win/log.cpp
+            src/platform/win/platform_win.cpp
+        )
+        target_link_libraries(stats_reset_tests PRIVATE Shlwapi Advapi32 Crypt32 Shell32 Ole32)
+    else()
+        target_include_directories(stats_reset_tests PRIVATE src/platform/linux)
+        target_sources(stats_reset_tests PRIVATE
+            src/platform/linux/log.cpp
+            src/platform/linux/platform_linux.cpp
+            src/platform/linux/file_util.cpp
+        )
+        target_link_libraries(stats_reset_tests PRIVATE pthread dl)
+    endif()
+    add_test(NAME stats_reset_tests COMMAND stats_reset_tests)
+endif()
+
 if(EXISTS ${CMAKE_SOURCE_DIR}/tests/sync_history_tests.cpp
    AND NOT TARGET sync_history_tests)
     add_executable(sync_history_tests

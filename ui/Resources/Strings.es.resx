@@ -2014,43 +2014,77 @@ Esto puede causar pérdida de datos en algunos casos.
     <value>cuenta {0}</value>
   </data>
   <data name="Stats_LockAll" xml:space="preserve">
-    <value>Volver a bloquear todos</value>
+    <value>Eliminar todos los logros</value>
   </data>
   <data name="Stats_LockOne" xml:space="preserve">
-    <value>Volver a bloquear este logro</value>
+    <value>Eliminar este logro</value>
   </data>
   <data name="Stats_CancelPending" xml:space="preserve">
     <value>Cancelar pendientes</value>
   </data>
   <data name="Stats_LockTitle" xml:space="preserve">
-    <value>Volver a bloquear logros</value>
+    <value>Eliminar logros</value>
   </data>
   <data name="Stats_LockNeedsSync" xml:space="preserve">
     <value>La sincronización de logros está desactivada. Activa "Sincronizar logros" en Ajustes primero; si no, CloudRedirect ignora la solicitud.</value>
   </data>
   <data name="Stats_LockOnePrompt" xml:space="preserve">
-    <value>¿Volver a bloquear "{0}" en {1}?
+    <value>¿Eliminar "{0}" de {1}?
 
-Se elimina de las estadísticas locales y en la nube de esta cuenta la próxima vez que se inicie Steam. Otro PC que aún lo tenga desbloqueado puede volver a añadirlo.</value>
+Vuelve a estar bloqueado en las estadísticas locales y en la nube de esta cuenta la próxima vez que se inicie Steam. Otro PC que aún lo tenga desbloqueado puede volver a añadirlo.</value>
   </data>
   <data name="Stats_LockAllPrompt" xml:space="preserve">
-    <value>¿Volver a bloquear los {0} logro(s) desbloqueados en {1}?
+    <value>¿Eliminar los {0} logro(s) desbloqueados de {1}?
 
-Se eliminan de las estadísticas locales y en la nube de esta cuenta la próxima vez que se inicie Steam. Otro PC que aún los tenga desbloqueados puede volver a añadirlos.</value>
+Vuelven a estar bloqueados en las estadísticas locales y en la nube de esta cuenta la próxima vez que se inicie Steam. El tiempo de juego se conserva. Otro PC que aún los tenga desbloqueados puede volver a añadirlos.</value>
   </data>
   <data name="Stats_LockQueued" xml:space="preserve">
-    <value>En cola. Los logros se bloquean de nuevo la próxima vez que se inicie Steam.</value>
+    <value>En cola. Se aplica la próxima vez que se inicie Steam.</value>
   </data>
   <data name="Stats_LockQueuedRestart" xml:space="preserve">
     <value>En cola. Steam está abierto: reinícialo para aplicarlo.</value>
   </data>
   <data name="Stats_LockPending" xml:space="preserve">
-    <value>Bloqueo pendiente (reinicia Steam)</value>
+    <value>Eliminación pendiente (reinicia Steam)</value>
   </data>
   <data name="Stats_PendingForApp" xml:space="preserve">
-    <value>{0} logro(s) pendientes de bloquear</value>
+    <value>{0} logro(s) pendientes de eliminar</value>
   </data>
   <data name="Stats_PendingBanner" xml:space="preserve">
-    <value>{0} logro(s) se bloquearán de nuevo la próxima vez que se inicie Steam.</value>
+    <value>Los cambios de {0} juego(s) se aplicarán la próxima vez que se inicie Steam.</value>
+  </data>
+  <data name="Stats_ResetAll" xml:space="preserve">
+    <value>Restablecer todas las estadísticas</value>
+  </data>
+  <data name="Stats_ResetAllTitle" xml:space="preserve">
+    <value>Restablecer todas las estadísticas</value>
+  </data>
+  <data name="Stats_ResetAllPrompt" xml:space="preserve">
+    <value>¿Restablecer todo en {0}?
+
+Todos los logros ({1} desbloqueados), todas las estadísticas y el tiempo de juego ({2}) vuelven a cero, en este PC y en la nube, la próxima vez que se inicie Steam. No se puede deshacer.</value>
+  </data>
+  <data name="Stats_ResetAllNeedsSync" xml:space="preserve">
+    <value>Requiere activar "Sincronizar logros" y "Sincronizar tiempo de juego" en Ajustes.</value>
+  </data>
+  <data name="Stats_ResetPlaytime" xml:space="preserve">
+    <value>Restablecer tiempo de juego</value>
+  </data>
+  <data name="Stats_ResetPlaytimeTitle" xml:space="preserve">
+    <value>Restablecer tiempo de juego</value>
+  </data>
+  <data name="Stats_ResetPlaytimePrompt" xml:space="preserve">
+    <value>¿Poner a cero el tiempo de juego de {0} ({1})?
+
+Se aplica en este PC y en la nube la próxima vez que se inicie Steam. Los logros y estadísticas se conservan. El juego nuevo se cuenta desde cero.</value>
+  </data>
+  <data name="Stats_ResetPlaytimeNeedsSync" xml:space="preserve">
+    <value>La sincronización del tiempo de juego está desactivada. Actívala primero en Ajustes.</value>
+  </data>
+  <data name="Stats_PendingResetAll" xml:space="preserve">
+    <value>Restablecimiento total pendiente (reinicia Steam)</value>
+  </data>
+  <data name="Stats_PendingResetPlaytime" xml:space="preserve">
+    <value>Restablecimiento del tiempo de juego pendiente (reinicia Steam)</value>
   </data>
 </root>

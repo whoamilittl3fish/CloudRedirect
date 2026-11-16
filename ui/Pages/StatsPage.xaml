@@ -141,6 +141,45 @@
                                 <StackPanel Visibility="{Binding DetailsVisibility}"
                                             Margin="36,12,0,0">
 
+                                    <!-- Reset actions (applied by the DLL on the next Steam start) -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding PendingText}"
+                                                   Visibility="{Binding PendingTextVisibility}"
+                                                   Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                                                   TextWrapping="Wrap"
+                                                   VerticalAlignment="Center"
+                                                   Margin="0,0,8,0" />
+                                        <ui:Button Grid.Column="1"
+                                                   Appearance="Secondary"
+                                                   Content="{res:Loc Stats_CancelPending}"
+                                                   Visibility="{Binding CancelPendingVisibility}"
+                                                   Tag="{Binding}"
+                                                   Click="CancelPending_Click"
+                                                   Margin="0,0,8,0" />
+                                        <ui:Button Grid.Column="2"
+                                                   Appearance="Secondary"
+                                                   Icon="{ui:SymbolIcon ArrowUndo24}"
+                                                   Content="{res:Loc Stats_ResetPlaytime}"
+                                                   Visibility="{Binding ResetPlaytimeVisibility}"
+                                                   Tag="{Binding}"
+                                                   Click="ResetPlaytime_Click"
+                                                   Margin="0,0,8,0" />
+                                        <ui:Button Grid.Column="3"
+                                                   Appearance="Danger"
+                                                   Icon="{ui:SymbolIcon Delete24}"
+                                                   Content="{res:Loc Stats_ResetAll}"
+                                                   Visibility="{Binding ResetAllVisibility}"
+                                                   Tag="{Binding}"
+                                                   Click="ResetAllStats_Click" />
+                                    </Grid>
+
                                     <!-- Playtime block -->
                                     <Grid Margin="0,0,0,12">
                                         <Grid.ColumnDefinitions>
@@ -187,14 +226,6 @@
                                                        FontSize="15" FontWeight="SemiBold"
                                                        VerticalAlignment="Center"
                                                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
-                                            <ui:Button Grid.Column="1"
-                                                       Appearance="Secondary"
-                                                       Content="{res:Loc Stats_CancelPending}"
-                                                       ToolTip="{Binding PendingText}"
-                                                       Visibility="{Binding CancelPendingVisibility}"
-                                                       Tag="{Binding}"
-                                                       Click="CancelPending_Click"
-                                                       Margin="0,0,8,0" />
                                             <ui:Button Grid.Column="2"
                                                        Appearance="Danger"
                                                        Icon="{ui:SymbolIcon LockClosed24}"

@@ -258,19 +258,85 @@ public partial class StatsPage : Page
 
     private static void MarkPending(StatApp app)
     {
-        var pending = PendingAchievementEdits.GetPending(app.AccountId, app.AppId.ToString());
+        var edits = PendingAchievementEdits.Get(app.AccountId, app.AppId.ToString());
+        app.PendingResetStats = edits.ResetStats;
+        app.PendingResetPlaytime = edits.ResetPlaytime;
         foreach (var a in app.Achievements)
         {
             a.Owner = app;
-            a.Pending = pending.Contains((a.StatId, a.Bit));
+            a.Pending = edits.ResetStats ? a.Unlocked : edits.Locks.Contains((a.StatId, a.Bit));
         }
     }
 
     private void UpdatePendingBanner()
     {
-        int n = PendingAchievementEdits.CountAll();
+        int n = PendingAchievementEdits.CountApps();
         PendingBanner.Text = S.Format("Stats_PendingBanner", n);
         PendingBanner.Visibility = n > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private static async Task ShowQueuedAsync(string title)
+    {
+        bool steamRunning = System.Diagnostics.Process.GetProcessesByName("steam").Length > 0;
+        await Dialog.ShowInfoAsync(title,
+            S.Get(steamRunning ? "Stats_LockQueuedRestart" : "Stats_LockQueued"));
+    }
+
+    private async void ResetAllStats_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: StatApp app }) return;
+        var title = S.Get("Stats_ResetAllTitle");
+        if (!PendingAchievementEdits.IsAchievementSyncEnabled() || !PendingAchievementEdits.IsPlaytimeSyncEnabled())
+        {
+            await Dialog.ShowWarningAsync(title, S.Get("Stats_ResetAllNeedsSync"));
+            return;
+        }
+        if (!await Dialog.ConfirmDangerCountdownAsync(title,
+                S.Format("Stats_ResetAllPrompt", app.DisplayName, app.UnlockedAchievements, app.PlaytimeForeverText), 3))
+            return;
+        if (!TryQueue(() => PendingAchievementEdits.SetReset(app.AccountId, app.AppId.ToString(), true, true), title))
+            return;
+        app.PendingResetStats = true;
+        app.PendingResetPlaytime = true;
+        foreach (var a in app.Achievements) a.Pending = a.Unlocked;
+        app.NotifyPendingChanged();
+        UpdatePendingBanner();
+        await ShowQueuedAsync(title);
+    }
+
+    private async void ResetPlaytime_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: StatApp app }) return;
+        var title = S.Get("Stats_ResetPlaytimeTitle");
+        if (!PendingAchievementEdits.IsPlaytimeSyncEnabled())
+        {
+            await Dialog.ShowWarningAsync(title, S.Get("Stats_ResetPlaytimeNeedsSync"));
+            return;
+        }
+        if (!await Dialog.ConfirmDangerAsync(title,
+                S.Format("Stats_ResetPlaytimePrompt", app.DisplayName, app.PlaytimeForeverText)))
+            return;
+        if (!TryQueue(() => PendingAchievementEdits.SetReset(app.AccountId, app.AppId.ToString(), false, true), title))
+            return;
+        app.PendingResetPlaytime = true;
+        app.NotifyPendingChanged();
+        UpdatePendingBanner();
+        await ShowQueuedAsync(title);
+    }
+
+    private static bool TryQueue(Action write, string title)
+    {
+        try
+        {
+            write();
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log($"pending_edits write failed: {ex}");
+            _ = Dialog.ShowErrorAsync(title, ex.Message);
+            return false;
+        }
     }
 
     private async Task<bool> QueueLocksAsync(StatApp app, IReadOnlyList<AchievementEntry> targets, string prompt)
@@ -283,24 +349,14 @@ public partial class StatsPage : Page
         }
         if (!await Dialog.ConfirmDangerAsync(S.Get("Stats_LockTitle"), prompt)) return false;
 
-        try
-        {
-            PendingAchievementEdits.Add(app.AccountId, app.AppId.ToString(),
-                targets.Select(t => new PendingAchievementEdits.Lock(t.Name, t.StatId, t.Bit)));
-        }
-        catch (Exception ex)
-        {
-            Log($"pending_edits write failed: {ex}");
-            await Dialog.ShowErrorAsync(S.Get("Stats_LockTitle"), ex.Message);
+        if (!TryQueue(() => PendingAchievementEdits.AddLocks(app.AccountId, app.AppId.ToString(),
+                targets.Select(t => new PendingAchievementEdits.Lock(t.Name, t.StatId, t.Bit)).ToList()),
+                S.Get("Stats_LockTitle")))
             return false;
-        }
         foreach (var t in targets) t.Pending = true;
         app.NotifyPendingChanged();
         UpdatePendingBanner();
-
-        bool steamRunning = System.Diagnostics.Process.GetProcessesByName("steam").Length > 0;
-        await Dialog.ShowInfoAsync(S.Get("Stats_LockTitle"),
-            S.Get(steamRunning ? "Stats_LockQueuedRestart" : "Stats_LockQueued"));
+        await ShowQueuedAsync(S.Get("Stats_LockTitle"));
         return true;
     }
 
@@ -321,6 +377,8 @@ public partial class StatsPage : Page
     {
         if (sender is not FrameworkElement { Tag: StatApp app }) return;
         PendingAchievementEdits.Cancel(app.AccountId, app.AppId.ToString());
+        app.PendingResetStats = false;
+        app.PendingResetPlaytime = false;
         foreach (var a in app.Achievements) a.Pending = false;
         app.NotifyPendingChanged();
         UpdatePendingBanner();
@@ -491,18 +549,38 @@ public partial class StatsPage : Page
             }
         }
 
+        public bool PendingResetStats { get; set; }
+        public bool PendingResetPlaytime { get; set; }
         public int PendingCount => Achievements.Count(a => a.Pending);
+        public bool AnyPending => PendingCount > 0 || PendingResetStats || PendingResetPlaytime;
+
         public Visibility LockAllVisibility =>
-            Achievements.Any(a => a.Unlocked && !a.Pending) ? Visibility.Visible : Visibility.Collapsed;
-        public Visibility CancelPendingVisibility => PendingCount > 0 ? Visibility.Visible : Visibility.Collapsed;
-        public string PendingText => S.Format("Stats_PendingForApp", PendingCount);
+            !PendingResetStats && Achievements.Any(a => a.Unlocked && !a.Pending)
+                ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility CancelPendingVisibility => AnyPending ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility ResetAllVisibility => PendingResetStats ? Visibility.Collapsed : Visibility.Visible;
+        public Visibility ResetPlaytimeVisibility => PendingResetPlaytime ? Visibility.Collapsed : Visibility.Visible;
+
+        public string PendingText
+        {
+            get
+            {
+                var parts = new List<string>();
+                if (PendingResetStats) parts.Add(S.Get("Stats_PendingResetAll"));
+                else if (PendingCount > 0) parts.Add(S.Format("Stats_PendingForApp", PendingCount));
+                if (PendingResetPlaytime && !PendingResetStats) parts.Add(S.Get("Stats_PendingResetPlaytime"));
+                return string.Join(" · ", parts);
+            }
+        }
+        public Visibility PendingTextVisibility => AnyPending ? Visibility.Visible : Visibility.Collapsed;
 
         public void NotifyPendingChanged()
         {
-            Notify(nameof(PendingCount));
-            Notify(nameof(LockAllVisibility));
-            Notify(nameof(CancelPendingVisibility));
-            Notify(nameof(PendingText));
+            foreach (var n in new[] { nameof(PendingCount), nameof(AnyPending), nameof(LockAllVisibility),
+                                      nameof(CancelPendingVisibility), nameof(ResetAllVisibility),
+                                      nameof(ResetPlaytimeVisibility), nameof(PendingText),
+                                      nameof(PendingTextVisibility) })
+                Notify(n);
         }
 
         public bool HasAchievements => Achievements.Count > 0;

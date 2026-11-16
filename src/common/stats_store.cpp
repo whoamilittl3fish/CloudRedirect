@@ -397,6 +397,43 @@ static std::string AccountStatsDir() {
     return std::string();
 }
 
+// Apps whose playtime the user reset (pending_edits "reset_playtime"/"reset_all").
+// ReconcileLocalConfig must skip them, or Steam's own localconfig.vdf Playtime
+// (which still holds the old total) refills the "__migrated_localconfig" bucket
+// on the next start. New play is still counted by CR's own session tracking.
+// Stored as {"apps":[...]} in <accountDir>/playtime_reset.json. Caller holds g_mutex.
+static std::unordered_set<uint32_t> LoadPlaytimeResetAppsLocked(uint32_t accountId) {
+    std::unordered_set<uint32_t> out;
+    if (accountId == 0) return out;
+    fs::path p = FileUtil::Utf8ToPath(g_storageRoot + "/" + std::to_string(accountId)) /
+                 "playtime_reset.json";
+    std::ifstream f(p, std::ios::binary);
+    if (!f.good()) return out;
+    std::string text((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+    Json::Value root = Json::Parse(text);
+    const Json::Value& apps = root["apps"];
+    if (apps.type == Json::Type::Array)
+        for (size_t i = 0; i < apps.size(); i++)
+            if (apps[i].integer() > 0) out.insert((uint32_t)apps[i].integer());
+    return out;
+}
+
+static void AddPlaytimeResetAppLocked(uint32_t accountId, uint32_t appId) {
+    if (accountId == 0 || appId == 0) return;
+    auto apps = LoadPlaytimeResetAppsLocked(accountId);
+    if (!apps.insert(appId).second) return;
+    std::vector<uint32_t> sorted(apps.begin(), apps.end());
+    std::sort(sorted.begin(), sorted.end());
+    Json::Value arr = Json::Array();
+    for (uint32_t id : sorted) arr.arrVal.push_back(Json::Number((double)id));
+    Json::Value root = Json::Object();
+    root.objVal["apps"] = arr;
+    std::string dir = g_storageRoot + "/" + std::to_string(accountId);
+    std::error_code ec;
+    fs::create_directories(FileUtil::Utf8ToPath(dir), ec);
+    FileUtil::AtomicWriteText(dir + "/playtime_reset.json", Json::Stringify(root));
+}
+
 static std::string StatsPath(uint32_t appId) {
     std::string dir = AccountStatsDir();
     if (dir.empty()) return std::string();
@@ -432,6 +469,7 @@ static void ReconcileLocalConfig(const std::string& cloudRoot, const std::string
     std::string acctIdStr = std::to_string(currentAcct);
 
     int reconciled = 0;
+    const auto playtimeResetApps = LoadPlaytimeResetAppsLocked(currentAcct);
     fs::path acctDir = userdataDir / acctIdStr;
     if (!fs::is_directory(acctDir, ec)) return;
 
@@ -472,6 +510,7 @@ static void ReconcileLocalConfig(const std::string& cloudRoot, const std::string
             // server-tracked playtime and are never reconciled or synced.
             bool isNs = g_isNamespaceApp && g_isNamespaceApp(appId);
             if (!isNs) return true;
+            if (playtimeResetApps.count(appId)) return true;  // user reset its playtime
 
             std::string appIdStr = std::to_string(appId);
             const char* appPath[] = {"UserLocalConfigStore", "Software", "Valve", "Steam", appsKey, appIdStr.c_str()};
@@ -2002,6 +2041,19 @@ static void MigrateLegacyPlaytimeBins(const std::vector<uint32_t>& appIds) {
 //
 //   { "<accountId>": { "<appId>": [ { "name": "ACH_X", "stat": 1, "bit": 0 }, ... ] } }
 //
+// An app's value may also be an object, written by the companion app's Stats page:
+//
+//   { "locks": [ ...as above... ], "reset_stats": true, "reset_playtime": true }
+//
+// reset_stats zeroes every stat and clears every achievement bit and unlock time.
+// Values are zeroed, not removed: an app with no stats re-imports Steam's own
+// UserGameStats_<acct>_<app>.bin on the next start (EnsureNativeImportLocked), which
+// would bring everything back, whereas zeroed entries are exported over that file
+// below (SeedApps -> ExportNativeStats). reset_playtime clears every device bucket
+// and the last-played time and records the app in playtime_reset.json so the
+// localconfig.vdf reconcile no longer refills it. Both mark the app reset, so the
+// push replaces its cloud entry instead of merging the old values back.
+//
 // Every listed app is uploaded on this start. Without this, an offline unlock only reached the cloud the
 // next time that game itself made CR save: LoadAppStats writes with pushCloud=false, and the native
 // re-import is skipped once an app has stats. Each listed achievement is LOCKED: cleared after the normal
@@ -2028,9 +2080,11 @@ static void ApplyPendingEdits() {
         text.assign(std::istreambuf_iterator<char>(f), std::istreambuf_iterator<char>());
     }
 
-    // Not managing achievements means nothing here applies; drop it rather than leave it pending forever.
-    if (!MetadataSync::syncAchievements.load(std::memory_order_relaxed)) {
-        LOG("[Stats] pending_edits.json ignored: achievement sync is off");
+    // Managing neither achievements nor playtime means nothing here applies; drop it rather than
+    // leave it pending forever. (A playtime reset only needs playtime sync, and vice versa.)
+    if (!MetadataSync::syncAchievements.load(std::memory_order_relaxed) &&
+        !MetadataSync::syncPlaytime.load(std::memory_order_relaxed)) {
+        LOG("[Stats] pending_edits.json ignored: achievement and playtime sync are off");
         fs::remove(notePath, ec);
         return;
     }
@@ -2047,14 +2101,40 @@ static void ApplyPendingEdits() {
 
     const Json::Value& apps = root[acctKey];
     if (apps.type == Json::Type::Object) {
-        for (const auto& [appKey, locks] : apps.objVal) {
+        for (const auto& [appKey, edit] : apps.objVal) {
             uint32_t appId = (uint32_t)strtoul(appKey.c_str(), nullptr, 10);
             if (appId == 0) continue;
 
             AppStats& stats = GetOrCreateLocked(appId); // load local + OR-merge the cloud, as usual
 
+            // Legacy value: a bare array of locks. Object value: locks plus reset flags.
+            const bool isObj = edit.type == Json::Type::Object;
+            const Json::Value& locks = isObj ? edit["locks"] : edit;
+            const bool resetStats = isObj && edit["reset_stats"].boolean();
+            const bool resetPlaytime = isObj && edit["reset_playtime"].boolean();
+
             size_t locked = 0;
-            if (locks.type == Json::Type::Array) {
+            if (resetStats) {
+                for (auto& a : stats.achievements) {
+                    for (uint32_t b = 0; b < 32; b++)
+                        if (a.bits & (1u << b)) ++locked;
+                    a.bits = 0;
+                    for (auto& t : a.unlockTimes) t = 0;
+                }
+                for (auto& st : stats.stats) st.value = 0;
+            }
+            if (resetPlaytime) {
+                stats.playtime.perDevice.clear();
+                stats.playtime.minutesForever = 0;
+                stats.playtime.minutesLastTwoWeeks = 0;
+                stats.playtime.lastPlayedTime = 0;
+                stats.playtime.playtimeWindows = 0;
+                stats.playtime.playtimeMac = 0;
+                stats.playtime.playtimeLinux = 0;
+                stats.playtime.daysTracked = false;
+                AddPlaytimeResetAppLocked(g_diskAccountId, appId);
+            }
+            if (!resetStats && locks.type == Json::Type::Array) {
                 for (size_t i = 0; i < locks.size(); i++) {
                     uint32_t statId = (uint32_t)locks[i]["stat"].integer();
                     int64_t bit = locks[i]["bit"].integer();
@@ -2074,14 +2154,18 @@ static void ApplyPendingEdits() {
                 }
             }
 
-            if (locked > 0) g_resetApps.insert(appId); // push replaces this app instead of OR-merging
+            // Push replaces this app instead of OR-merging the old values back in.
+            if (locked > 0 || resetStats || resetPlaytime) g_resetApps.insert(appId);
             g_cloudBlobMerged.insert(appId);           // already merged; never late-merge stale bits back
             stats.crcStats = ComputeCrcLocked(stats);
             g_dirty[appId] = true;
-            WriteAppStats(appId, stats, /*pushCloud=*/true);
+            // A playtime reset must skip the max-merge with the on-disk and cached-cloud
+            // playtime, or the old minutes are written straight back.
+            WriteAppStats(appId, stats, /*pushCloud=*/true, /*bypassDiskMerge=*/resetPlaytime);
             g_dirty[appId] = false;
-            LOG("[Stats] pending edit applied: app %u, %zu achievement(s) locked, queued for upload",
-                appId, locked);
+            LOG("[Stats] pending edit applied: app %u, %zu achievement(s) locked%s%s, queued for upload",
+                appId, locked, resetStats ? ", stats reset" : "",
+                resetPlaytime ? ", playtime reset" : "");
         }
     }
 

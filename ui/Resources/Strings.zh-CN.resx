@@ -2040,44 +2040,78 @@
     <value>账户 {0}</value>
   </data>
   <data name="Stats_LockAll" xml:space="preserve">
-    <value>全部重新锁定</value>
+    <value>删除全部成就</value>
   </data>
   <data name="Stats_LockOne" xml:space="preserve">
-    <value>重新锁定此成就</value>
+    <value>删除此成就</value>
   </data>
   <data name="Stats_CancelPending" xml:space="preserve">
     <value>取消待处理</value>
   </data>
   <data name="Stats_LockTitle" xml:space="preserve">
-    <value>重新锁定成就</value>
+    <value>删除成就</value>
   </data>
   <data name="Stats_LockNeedsSync" xml:space="preserve">
     <value>成就同步已关闭。请先在设置中开启“同步成就”，否则 CloudRedirect 会忽略此请求。</value>
   </data>
   <data name="Stats_LockOnePrompt" xml:space="preserve">
-    <value>要重新锁定 {1} 中的“{0}”吗？
+    <value>要删除 {1} 中的“{0}”吗？
 
-下次启动 Steam 时，它会从此账户的本地和云端统计中移除。仍解锁该成就的其他电脑可能会把它加回来。</value>
+下次启动 Steam 时，它会在此账户的本地和云端统计中恢复为未解锁。仍解锁该成就的其他电脑可能会把它加回来。</value>
   </data>
   <data name="Stats_LockAllPrompt" xml:space="preserve">
-    <value>要重新锁定 {1} 中全部 {0} 个已解锁成就吗？
+    <value>要删除 {1} 的全部 {0} 个已解锁成就吗？
 
-下次启动 Steam 时，它们会从此账户的本地和云端统计中移除。仍解锁这些成就的其他电脑可能会把它们加回来。</value>
+下次启动 Steam 时，它们会在此账户的本地和云端统计中恢复为未解锁。游戏时间保持不变。仍解锁这些成就的其他电脑可能会把它们加回来。</value>
   </data>
   <data name="Stats_LockQueued" xml:space="preserve">
-    <value>已加入队列。下次启动 Steam 时将重新锁定这些成就。</value>
+    <value>已加入队列。下次启动 Steam 时生效。</value>
   </data>
   <data name="Stats_LockQueuedRestart" xml:space="preserve">
     <value>已加入队列。Steam 正在运行：请重启 Steam 以应用。</value>
   </data>
   <data name="Stats_LockPending" xml:space="preserve">
-    <value>等待重新锁定（重启 Steam）</value>
+    <value>等待删除（重启 Steam）</value>
   </data>
   <data name="Stats_PendingForApp" xml:space="preserve">
-    <value>{0} 个成就等待重新锁定</value>
+    <value>{0} 个成就等待删除</value>
   </data>
   <data name="Stats_PendingBanner" xml:space="preserve">
-    <value>下次启动 Steam 时将重新锁定 {0} 个成就。</value>
+    <value>{0} 个游戏的更改将在下次启动 Steam 时生效。</value>
+  </data>
+  <data name="Stats_ResetAll" xml:space="preserve">
+    <value>重置全部统计</value>
+  </data>
+  <data name="Stats_ResetAllTitle" xml:space="preserve">
+    <value>重置全部统计</value>
+  </data>
+  <data name="Stats_ResetAllPrompt" xml:space="preserve">
+    <value>要重置 {0} 的全部数据吗？
+
+下次启动 Steam 时，所有成就（已解锁 {1} 个）、所有统计和游戏时间（{2}）都会在本机和云端归零。此操作无法撤销。</value>
+  </data>
+  <data name="Stats_ResetAllNeedsSync" xml:space="preserve">
+    <value>需要在设置中同时开启“同步成就”和“同步游戏时长”。</value>
+  </data>
+  <data name="Stats_ResetPlaytime" xml:space="preserve">
+    <value>重置游戏时间</value>
+  </data>
+  <data name="Stats_ResetPlaytimeTitle" xml:space="preserve">
+    <value>重置游戏时间</value>
+  </data>
+  <data name="Stats_ResetPlaytimePrompt" xml:space="preserve">
+    <value>要将 {0} 的游戏时间（{1}）归零吗？
+
+下次启动 Steam 时在本机和云端生效。成就和统计保持不变。之后的游戏时间从零开始计算。</value>
+  </data>
+  <data name="Stats_ResetPlaytimeNeedsSync" xml:space="preserve">
+    <value>游戏时间同步已关闭。请先在设置中开启“同步游戏时长”。</value>
+  </data>
+  <data name="Stats_PendingResetAll" xml:space="preserve">
+    <value>等待完全重置（重启 Steam）</value>
+  </data>
+  <data name="Stats_PendingResetPlaytime" xml:space="preserve">
+    <value>等待重置游戏时间（重启 Steam）</value>
   </data>
 </root>
 

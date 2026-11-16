@@ -2067,43 +2067,77 @@ Are you sure?</value>
     <value>account {0}</value>
   </data>
   <data name="Stats_LockAll" xml:space="preserve">
-    <value>Re-lock all</value>
+    <value>Delete all achievements</value>
   </data>
   <data name="Stats_LockOne" xml:space="preserve">
-    <value>Re-lock this achievement</value>
+    <value>Delete this achievement</value>
   </data>
   <data name="Stats_CancelPending" xml:space="preserve">
     <value>Cancel pending</value>
   </data>
   <data name="Stats_LockTitle" xml:space="preserve">
-    <value>Re-lock achievements</value>
+    <value>Delete achievements</value>
   </data>
   <data name="Stats_LockNeedsSync" xml:space="preserve">
     <value>Achievement sync is off. Turn on "Sync Achievements" in Settings first; otherwise CloudRedirect ignores the request.</value>
   </data>
   <data name="Stats_LockOnePrompt" xml:space="preserve">
-    <value>Re-lock "{0}" in {1}?
+    <value>Delete "{0}" from {1}?
 
-It is removed from this account's local and cloud stats the next time Steam starts. Another PC that still has it unlocked can add it back.</value>
+It goes back to locked in this account's local and cloud stats the next time Steam starts. Another PC that still has it unlocked can add it back.</value>
   </data>
   <data name="Stats_LockAllPrompt" xml:space="preserve">
-    <value>Re-lock all {0} unlocked achievement(s) in {1}?
+    <value>Delete all {0} unlocked achievement(s) of {1}?
 
-They are removed from this account's local and cloud stats the next time Steam starts. Another PC that still has them unlocked can add them back.</value>
+They go back to locked in this account's local and cloud stats the next time Steam starts. Playtime is kept. Another PC that still has them unlocked can add them back.</value>
   </data>
   <data name="Stats_LockQueued" xml:space="preserve">
-    <value>Queued. The achievements are re-locked the next time Steam starts.</value>
+    <value>Queued. It is applied the next time Steam starts.</value>
   </data>
   <data name="Stats_LockQueuedRestart" xml:space="preserve">
     <value>Queued. Steam is running: restart Steam to apply.</value>
   </data>
   <data name="Stats_LockPending" xml:space="preserve">
-    <value>Re-lock pending (restart Steam)</value>
+    <value>Deletion pending (restart Steam)</value>
   </data>
   <data name="Stats_PendingForApp" xml:space="preserve">
-    <value>{0} achievement(s) waiting to be re-locked</value>
+    <value>{0} achievement(s) waiting to be deleted</value>
   </data>
   <data name="Stats_PendingBanner" xml:space="preserve">
-    <value>{0} achievement(s) will be re-locked the next time Steam starts.</value>
+    <value>Changes for {0} game(s) will be applied the next time Steam starts.</value>
+  </data>
+  <data name="Stats_ResetAll" xml:space="preserve">
+    <value>Reset all stats</value>
+  </data>
+  <data name="Stats_ResetAllTitle" xml:space="preserve">
+    <value>Reset all stats</value>
+  </data>
+  <data name="Stats_ResetAllPrompt" xml:space="preserve">
+    <value>Reset everything for {0}?
+
+All achievements ({1} unlocked), all stats and the playtime ({2}) go back to zero, on this PC and in the cloud, the next time Steam starts. This cannot be undone.</value>
+  </data>
+  <data name="Stats_ResetAllNeedsSync" xml:space="preserve">
+    <value>This needs both "Sync Achievements" and "Sync Playtime" turned on in Settings.</value>
+  </data>
+  <data name="Stats_ResetPlaytime" xml:space="preserve">
+    <value>Reset playtime</value>
+  </data>
+  <data name="Stats_ResetPlaytimeTitle" xml:space="preserve">
+    <value>Reset playtime</value>
+  </data>
+  <data name="Stats_ResetPlaytimePrompt" xml:space="preserve">
+    <value>Reset the playtime of {0} ({1}) to zero?
+
+Applied on this PC and in the cloud the next time Steam starts. Achievements and stats are kept. New play is counted from zero.</value>
+  </data>
+  <data name="Stats_ResetPlaytimeNeedsSync" xml:space="preserve">
+    <value>Playtime sync is off. Turn on "Sync Playtime" in Settings first.</value>
+  </data>
+  <data name="Stats_PendingResetAll" xml:space="preserve">
+    <value>Full reset pending (restart Steam)</value>
+  </data>
+  <data name="Stats_PendingResetPlaytime" xml:space="preserve">
+    <value>Playtime reset pending (restart Steam)</value>
   </data>
 </root>

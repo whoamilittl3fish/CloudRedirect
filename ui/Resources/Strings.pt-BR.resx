@@ -2019,43 +2019,77 @@ Tem certeza?</value>
     <value>conta {0}</value>
   </data>
   <data name="Stats_LockAll" xml:space="preserve">
-    <value>Bloquear todas novamente</value>
+    <value>Excluir todas as conquistas</value>
   </data>
   <data name="Stats_LockOne" xml:space="preserve">
-    <value>Bloquear esta conquista novamente</value>
+    <value>Excluir esta conquista</value>
   </data>
   <data name="Stats_CancelPending" xml:space="preserve">
     <value>Cancelar pendentes</value>
   </data>
   <data name="Stats_LockTitle" xml:space="preserve">
-    <value>Bloquear conquistas novamente</value>
+    <value>Excluir conquistas</value>
   </data>
   <data name="Stats_LockNeedsSync" xml:space="preserve">
     <value>A sincronização de conquistas está desativada. Ative "Sincronizar conquistas" nas Configurações primeiro; caso contrário, o CloudRedirect ignora o pedido.</value>
   </data>
   <data name="Stats_LockOnePrompt" xml:space="preserve">
-    <value>Bloquear "{0}" em {1} novamente?
+    <value>Excluir "{0}" de {1}?
 
-Ela é removida das estatísticas locais e na nuvem desta conta na próxima vez que o Steam iniciar. Outro PC que ainda a tenha desbloqueada pode adicioná-la de volta.</value>
+Ela volta a ficar bloqueada nas estatísticas locais e na nuvem desta conta na próxima vez que o Steam iniciar. Outro PC que ainda a tenha desbloqueada pode adicioná-la de volta.</value>
   </data>
   <data name="Stats_LockAllPrompt" xml:space="preserve">
-    <value>Bloquear novamente as {0} conquista(s) desbloqueadas em {1}?
+    <value>Excluir as {0} conquista(s) desbloqueadas de {1}?
 
-Elas são removidas das estatísticas locais e na nuvem desta conta na próxima vez que o Steam iniciar. Outro PC que ainda as tenha desbloqueadas pode adicioná-las de volta.</value>
+Elas voltam a ficar bloqueadas nas estatísticas locais e na nuvem desta conta na próxima vez que o Steam iniciar. O tempo de jogo é mantido. Outro PC que ainda as tenha desbloqueadas pode adicioná-las de volta.</value>
   </data>
   <data name="Stats_LockQueued" xml:space="preserve">
-    <value>Na fila. As conquistas serão bloqueadas na próxima vez que o Steam iniciar.</value>
+    <value>Na fila. É aplicado na próxima vez que o Steam iniciar.</value>
   </data>
   <data name="Stats_LockQueuedRestart" xml:space="preserve">
     <value>Na fila. O Steam está aberto: reinicie-o para aplicar.</value>
   </data>
   <data name="Stats_LockPending" xml:space="preserve">
-    <value>Bloqueio pendente (reinicie o Steam)</value>
+    <value>Exclusão pendente (reinicie o Steam)</value>
   </data>
   <data name="Stats_PendingForApp" xml:space="preserve">
-    <value>{0} conquista(s) aguardando bloqueio</value>
+    <value>{0} conquista(s) aguardando exclusão</value>
   </data>
   <data name="Stats_PendingBanner" xml:space="preserve">
-    <value>{0} conquista(s) serão bloqueadas novamente na próxima vez que o Steam iniciar.</value>
+    <value>As alterações de {0} jogo(s) serão aplicadas na próxima vez que o Steam iniciar.</value>
+  </data>
+  <data name="Stats_ResetAll" xml:space="preserve">
+    <value>Redefinir todas as estatísticas</value>
+  </data>
+  <data name="Stats_ResetAllTitle" xml:space="preserve">
+    <value>Redefinir todas as estatísticas</value>
+  </data>
+  <data name="Stats_ResetAllPrompt" xml:space="preserve">
+    <value>Redefinir tudo de {0}?
+
+Todas as conquistas ({1} desbloqueadas), todas as estatísticas e o tempo de jogo ({2}) voltam a zero, neste PC e na nuvem, na próxima vez que o Steam iniciar. Não pode ser desfeito.</value>
+  </data>
+  <data name="Stats_ResetAllNeedsSync" xml:space="preserve">
+    <value>Requer "Sincronizar conquistas" e "Sincronizar tempo de jogo" ativados nas Configurações.</value>
+  </data>
+  <data name="Stats_ResetPlaytime" xml:space="preserve">
+    <value>Redefinir tempo de jogo</value>
+  </data>
+  <data name="Stats_ResetPlaytimeTitle" xml:space="preserve">
+    <value>Redefinir tempo de jogo</value>
+  </data>
+  <data name="Stats_ResetPlaytimePrompt" xml:space="preserve">
+    <value>Zerar o tempo de jogo de {0} ({1})?
+
+Aplicado neste PC e na nuvem na próxima vez que o Steam iniciar. Conquistas e estatísticas são mantidas. O novo tempo é contado a partir do zero.</value>
+  </data>
+  <data name="Stats_ResetPlaytimeNeedsSync" xml:space="preserve">
+    <value>A sincronização do tempo de jogo está desativada. Ative-a primeiro nas Configurações.</value>
+  </data>
+  <data name="Stats_PendingResetAll" xml:space="preserve">
+    <value>Redefinição completa pendente (reinicie o Steam)</value>
+  </data>
+  <data name="Stats_PendingResetPlaytime" xml:space="preserve">
+    <value>Redefinição do tempo de jogo pendente (reinicie o Steam)</value>
   </data>
 </root>
