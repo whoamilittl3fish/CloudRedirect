@@ -2096,4 +2096,28 @@ Se aplica en este PC y en la nube la próxima vez que se inicie Steam. Los logro
   <data name="History_OpenBackups" xml:space="preserve">
     <value>Copias locales</value>
   </data>
+  <data name="History_RestoreButton" xml:space="preserve">
+    <value>Restaurar copia local ({0})</value>
+  </data>
+  <data name="History_RestoreTitle" xml:space="preserve">
+    <value>Restaurar copia local</value>
+  </data>
+  <data name="History_RestorePrompt" xml:space="preserve">
+    <value>¿Restaurar los {2} archivo(s) de partida de {0} guardados el {1}?
+
+Cierra el juego primero. Los archivos actuales que difieran y los más nuevos que la copia no tenga se mueven a la carpeta de la copia (.replaced), no se eliminan.</value>
+  </data>
+  <data name="History_RestoreDone" xml:space="preserve">
+    <value>Se restauraron {0} archivo(s).</value>
+  </data>
+  <data name="History_RestoreMovedAside" xml:space="preserve">
+    <value>{0} archivo(s) reemplazados se conservan en:
+{1}</value>
+  </data>
+  <data name="History_RestoreKeepLocal" xml:space="preserve">
+    <value>La próxima vez que inicies el juego, Steam probablemente indicará un conflicto: elige los archivos de este PC; si no, la copia en la nube sobrescribirá las partidas restauradas.</value>
+  </data>
+  <data name="History_RestoreFailed" xml:space="preserve">
+    <value>Error al restaurar: {0}</value>
+  </data>
 </root>

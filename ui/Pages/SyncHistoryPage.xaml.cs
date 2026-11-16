@@ -58,8 +58,11 @@ public partial class SyncHistoryPage : Page
                 .ToList();
 
             bool multiAccount = _apps.Select(a => a.AccountId).Distinct().Count() > 1;
+            var backups = await Task.Run(() =>
+                _apps.ToDictionary(a => a.Key, a => LocalBackupStore.FindLatest(a.AccountId, a.AppId)));
             foreach (var app in _apps)
             {
+                app.Backup = backups[app.Key];
                 app.ShowAccount = multiAccount;
                 app.IsExpanded = expanded.Contains(app.Key);
                 if (names.TryGetValue(app.AppId, out var n)) app.Name = n;
@@ -111,6 +114,30 @@ public partial class SyncHistoryPage : Page
             Process.Start(new ProcessStartInfo { FileName = dir, UseShellExecute = true });
         }
         catch { }
+    }
+
+    private async void RestoreBackup_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: AppHistory app } || app.Backup == null) return;
+        var snap = app.Backup;
+        var title = S.Get("History_RestoreTitle");
+        if (!await Dialog.ConfirmDangerAsync(title,
+                S.Format("History_RestorePrompt", app.DisplayName, FormatTime(new DateTimeOffset(snap.Taken)),
+                         snap.Files.Count)))
+            return;
+        try
+        {
+            var result = await Task.Run(() => LocalBackupStore.Restore(snap));
+            var msg = S.Format("History_RestoreDone", result.Restored);
+            if (result.MovedAside > 0)
+                msg += "\n\n" + S.Format("History_RestoreMovedAside", result.MovedAside, result.ReplacedDir);
+            msg += "\n\n" + S.Get("History_RestoreKeepLocal");
+            await Dialog.ShowInfoAsync(title, msg);
+        }
+        catch (Exception ex)
+        {
+            await Dialog.ShowErrorAsync(title, S.Format("History_RestoreFailed", ex.Message));
+        }
     }
 
     private void ExpandCollapse_Click(object sender, RoutedEventArgs e)
@@ -188,6 +215,16 @@ public partial class SyncHistoryPage : Page
 
         public uint AccountId { get; }
         public uint AppId { get; }
+
+        private LocalBackupStore.Snapshot? _backup;
+        public LocalBackupStore.Snapshot? Backup
+        {
+            get => _backup;
+            set { _backup = value; Notify(nameof(Backup)); Notify(nameof(BackupVisibility)); Notify(nameof(BackupLabel)); }
+        }
+        public Visibility BackupVisibility => _backup != null ? Visibility.Visible : Visibility.Collapsed;
+        public string BackupLabel => _backup == null ? "" :
+            S.Format("History_RestoreButton", FormatTime(new DateTimeOffset(_backup.Taken)));
         public (uint, uint) Key => (AccountId, AppId);
         public bool ShowAccount { get; set; }
         public DateTimeOffset LastTime => _last.Time;

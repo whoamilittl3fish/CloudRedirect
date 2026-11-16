@@ -5,8 +5,11 @@
 //   <cloudRoot>/local_backups/<accountId>/<appId>/<yyyyMMdd-HHmmss>/<cloud filename>
 //   <cloudRoot>/local_backups/<accountId>/<appId>/<stamp>/.snapshot.json
 //
-// Only the newest `keep` snapshots per app are kept, and a snapshot identical to
-// the latest one is skipped. Best-effort: failures are logged, never thrown.
+// Only the newest `keep` snapshots per app are kept (default 1), a snapshot identical
+// to the latest one is skipped, a snapshot whose every file the cloud now holds with
+// the same content is deleted as redundant, and snapshots older than `maxAgeDays`
+// expire. .snapshot.json lists each file's cloud name, SHA1 and original path, which
+// the companion app uses to restore. Best-effort: failures are logged, never thrown.
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -20,9 +23,13 @@ struct LocalFile {
     std::vector<uint8_t> sha;       // SHA1 of the local content
 };
 
-// Default 5; config "local_backups_kept". 0 turns snapshots off.
+// Default 1; config "local_backups_kept". 0 turns snapshots off.
 void SetKeep(uint32_t n);
 uint32_t GetKeep();
+
+// Default 30; config "local_backups_max_days". 0 disables expiry.
+void SetMaxAgeDays(uint32_t days);
+uint32_t GetMaxAgeDays();
 
 // True if serving `cloudShas` could change something on disk: a local file whose
 // cloud copy has different content, or that the cloud does not have at all.
@@ -40,6 +47,12 @@ struct Result {
 // Copies `files` into a new snapshot folder named `stamp` and prunes old ones.
 Result Take(const std::string& cloudRoot, uint32_t accountId, uint32_t appId,
             const std::vector<LocalFile>& files, const std::string& stamp);
+
+// Deletes snapshots of this app whose files the cloud already holds with identical
+// content (cloudShas: cloud filename -> SHA1), then expired ones. Returns how many
+// snapshot folders were removed. Call after a successful cloud publish.
+size_t PruneRedundantAndExpired(const std::string& cloudRoot, uint32_t accountId, uint32_t appId,
+                                const std::unordered_map<std::string, std::vector<uint8_t>>& cloudShas);
 
 // Local time as yyyyMMdd-HHmmss.
 std::string NowStamp();

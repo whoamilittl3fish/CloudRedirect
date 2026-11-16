@@ -2101,4 +2101,28 @@ Aplicado neste PC e na nuvem na próxima vez que o Steam iniciar. Conquistas e e
   <data name="History_OpenBackups" xml:space="preserve">
     <value>Backups locais</value>
   </data>
+  <data name="History_RestoreButton" xml:space="preserve">
+    <value>Restaurar backup local ({0})</value>
+  </data>
+  <data name="History_RestoreTitle" xml:space="preserve">
+    <value>Restaurar backup local</value>
+  </data>
+  <data name="History_RestorePrompt" xml:space="preserve">
+    <value>Restaurar os {2} arquivo(s) de save de {0} salvos em {1}?
+
+Feche o jogo antes. Os arquivos atuais diferentes e os mais novos que o backup não tem são movidos para a pasta do backup (.replaced), não excluídos.</value>
+  </data>
+  <data name="History_RestoreDone" xml:space="preserve">
+    <value>{0} arquivo(s) restaurado(s).</value>
+  </data>
+  <data name="History_RestoreMovedAside" xml:space="preserve">
+    <value>{0} arquivo(s) substituídos estão guardados em:
+{1}</value>
+  </data>
+  <data name="History_RestoreKeepLocal" xml:space="preserve">
+    <value>Na próxima vez que você abrir o jogo, o Steam provavelmente vai indicar um conflito: escolha os arquivos deste PC; caso contrário a cópia na nuvem sobrescreve os saves restaurados.</value>
+  </data>
+  <data name="History_RestoreFailed" xml:space="preserve">
+    <value>Falha ao restaurar: {0}</value>
+  </data>
 </root>

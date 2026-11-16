@@ -98,6 +98,14 @@
                                         <TextBlock Text="{Binding LastUploadLine}"
                                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                    FontSize="12" />
+                                        <ui:Button Content="{Binding BackupLabel}"
+                                                   Visibility="{Binding BackupVisibility}"
+                                                   Appearance="Secondary"
+                                                   Icon="{ui:SymbolIcon ArrowUndo24}"
+                                                   Tag="{Binding}"
+                                                   Click="RestoreBackup_Click"
+                                                   HorizontalAlignment="Left"
+                                                   Margin="0,6,0,0" />
                                     </StackPanel>
                                 </Grid>
 

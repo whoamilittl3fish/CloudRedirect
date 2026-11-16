@@ -4755,6 +4755,9 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
             MetadataSync::syncAchievements = cfg["sync_achievements"].boolean();
         if (cfg["sync_playtime"].type == Json::Type::Bool)
             MetadataSync::syncPlaytime = cfg["sync_playtime"].boolean();
+        if (cfg["local_backups_max_days"].type == Json::Type::Number &&
+            cfg["local_backups_max_days"].integer() >= 0)
+            LocalSnapshot::SetMaxAgeDays((uint32_t)cfg["local_backups_max_days"].integer());
         if (cfg["local_backups_kept"].type == Json::Type::Number &&
             cfg["local_backups_kept"].integer() >= 0)
             LocalSnapshot::SetKeep((uint32_t)cfg["local_backups_kept"].integer());

@@ -3,7 +3,9 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <chrono>
 #include <string>
+#include <unordered_map>
 
 namespace fs = std::filesystem;
 namespace LS = LocalSnapshot;
@@ -111,6 +113,64 @@ static void TestMissingSourceLeavesNoPartialSnapshot() {
     CHECK(!fs::exists(g_root / "cr" / "local_backups" / "7" / "77" / "20261119-000000"));
 }
 
+
+static fs::path AppDir(uint32_t app) { return g_root / "cr" / "local_backups" / "7" / std::to_string(app); }
+
+static void TestDefaultKeepsOne() {
+    LS::SetKeep(1);
+    LS::Take((g_root / "cr").string(), 7, 50, {MakeFile("one.sav", "a", 21)}, "20261120-000000");
+    LS::Take((g_root / "cr").string(), 7, 50, {MakeFile("one.sav", "b", 22)}, "20261120-000001");
+    size_t n = 0;
+    for (auto& e : fs::directory_iterator(AppDir(50))) if (e.is_directory()) ++n;
+    CHECK(n == 1);
+    CHECK(fs::exists(AppDir(50) / "20261120-000001"));
+}
+
+static void TestMetadataHasPaths() {
+    LS::SetKeep(1);
+    auto f = MakeFile("meta.sav", "m", 31);
+    auto r = LS::Take((g_root / "cr").string(), 7, 51, {f}, "20261120-010000");
+    std::string meta = ReadFile(fs::path(r.dir) / ".snapshot.json");
+    CHECK(meta.find("\"name\":\"meta.sav\"") != std::string::npos);
+    CHECK(meta.find("\"path\"") != std::string::npos);
+}
+
+static void TestRedundantDeleted() {
+    LS::SetKeep(1);
+    std::vector<LS::LocalFile> files = {MakeFile("r1.sav", "x", 41), MakeFile("r2.sav", "y", 42)};
+    LS::Take((g_root / "cr").string(), 7, 52, files, "20261120-020000");
+    // Cloud has only one of them with the same content: keep the snapshot.
+    std::unordered_map<std::string, std::vector<uint8_t>> partial = {{"r1.sav", Sha(41)}};
+    CHECK(LS::PruneRedundantAndExpired((g_root / "cr").string(), 7, 52, partial) == 0);
+    CHECK(fs::exists(AppDir(52) / "20261120-020000"));
+    // Cloud has both, but one with other content (cloud overwrote it): keep.
+    std::unordered_map<std::string, std::vector<uint8_t>> changed = {{"r1.sav", Sha(41)}, {"r2.sav", Sha(99)}};
+    CHECK(LS::PruneRedundantAndExpired((g_root / "cr").string(), 7, 52, changed) == 0);
+    // Cloud now holds exactly what the snapshot has (local was uploaded): delete.
+    std::unordered_map<std::string, std::vector<uint8_t>> same = {{"r1.sav", Sha(41)}, {"r2.sav", Sha(42)}, {"extra", Sha(1)}};
+    CHECK(LS::PruneRedundantAndExpired((g_root / "cr").string(), 7, 52, same) == 1);
+    CHECK(!fs::exists(AppDir(52)));
+}
+
+static void TestExpired() {
+    LS::SetKeep(1);
+    LS::SetMaxAgeDays(30);
+    auto r = LS::Take((g_root / "cr").string(), 7, 53, {MakeFile("old.sav", "o", 51)}, "20261001-000000");
+    CHECK(r.taken);
+    std::unordered_map<std::string, std::vector<uint8_t>> none;
+    CHECK(LS::PruneRedundantAndExpired((g_root / "cr").string(), 7, 53, none) == 0);  // fresh
+    auto meta = fs::path(r.dir) / ".snapshot.json";
+    fs::last_write_time(meta, fs::file_time_type::clock::now() - std::chrono::hours(24 * 31));
+    CHECK(LS::PruneRedundantAndExpired((g_root / "cr").string(), 7, 53, none) == 1);
+    // 0 disables expiry.
+    auto r2 = LS::Take((g_root / "cr").string(), 7, 54, {MakeFile("old2.sav", "o", 52)}, "20261001-000000");
+    fs::last_write_time(fs::path(r2.dir) / ".snapshot.json",
+                        fs::file_time_type::clock::now() - std::chrono::hours(24 * 400));
+    LS::SetMaxAgeDays(0);
+    CHECK(LS::PruneRedundantAndExpired((g_root / "cr").string(), 7, 54, none) == 0);
+    LS::SetMaxAgeDays(30);
+}
+
 int main() {
     std::error_code ec;
     g_root = fs::temp_directory_path() / "cr_local_snapshot_tests";
@@ -122,6 +182,10 @@ int main() {
     TestPruneKeepsNewest();
     TestDisabledAndUnsafeNames();
     TestMissingSourceLeavesNoPartialSnapshot();
+    TestDefaultKeepsOne();
+    TestMetadataHasPaths();
+    TestRedundantDeleted();
+    TestExpired();
 
     fs::remove_all(g_root, ec);
     if (g_failures == 0) {

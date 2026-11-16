@@ -2241,6 +2241,16 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
                               attempt > 1 ? "published after " + std::to_string(attempt) + " attempts"
                                           : std::string(),
                               publishCN, historyFiles, historyDeleted);
+                // A local snapshot whose files the cloud now holds unchanged is redundant.
+                {
+                    std::unordered_map<std::string, std::vector<uint8_t>> cloudShas;
+                    for (const auto& [name, fe] : publishState.files) cloudShas[name] = fe.sha;
+                    size_t pruned = LocalSnapshot::PruneRedundantAndExpired(
+                        CloudIntercept::GetSteamPath() + "cloud_redirect", accountId, appId, cloudShas);
+                    if (pruned > 0)
+                        LOG("[Snapshot] app=%u: removed %zu local snapshot(s) the cloud now covers",
+                            appId, pruned);
+                }
                 if (!evicted.empty()) {
                     auto m = CloudStorage::LoadLocalManifest(accountId, appId);
                     for (const auto& name : evicted) {

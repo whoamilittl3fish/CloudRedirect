@@ -2122,6 +2122,30 @@
   <data name="History_OpenBackups" xml:space="preserve">
     <value>本地备份</value>
   </data>
+  <data name="History_RestoreButton" xml:space="preserve">
+    <value>恢复本地备份（{0}）</value>
+  </data>
+  <data name="History_RestoreTitle" xml:space="preserve">
+    <value>恢复本地备份</value>
+  </data>
+  <data name="History_RestorePrompt" xml:space="preserve">
+    <value>要恢复 {0} 在 {1} 备份的 {2} 个存档文件吗？
+
+请先关闭游戏。内容不同的当前文件以及备份中没有的较新文件会被移到备份文件夹（.replaced），不会被删除。</value>
+  </data>
+  <data name="History_RestoreDone" xml:space="preserve">
+    <value>已恢复 {0} 个文件。</value>
+  </data>
+  <data name="History_RestoreMovedAside" xml:space="preserve">
+    <value>{0} 个被替换的文件保存在：
+{1}</value>
+  </data>
+  <data name="History_RestoreKeepLocal" xml:space="preserve">
+    <value>下次启动游戏时，Steam 可能会提示云冲突：请选择本机上的文件，否则云端副本会覆盖已恢复的存档。</value>
+  </data>
+  <data name="History_RestoreFailed" xml:space="preserve">
+    <value>恢复失败：{0}</value>
+  </data>
 </root>
 
 

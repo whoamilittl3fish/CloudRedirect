@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <ctime>
 #include <filesystem>
 #include <fstream>
@@ -15,7 +16,8 @@ namespace fs = std::filesystem;
 namespace LocalSnapshot {
 
 namespace {
-std::atomic<uint32_t> g_keep{5};
+std::atomic<uint32_t> g_keep{1};
+std::atomic<uint32_t> g_maxAgeDays{30};
 std::mutex g_mutex;
 
 std::string ShaHex(const std::vector<uint8_t>& sha) {
@@ -29,17 +31,20 @@ std::string ShaHex(const std::vector<uint8_t>& sha) {
     return out;
 }
 
-// name -> sha hex, the identity of a snapshot.
+// {"files":[{"name","sha","path"}]} sorted by name: the identity of a snapshot and
+// what the companion app needs to put each file back.
 std::string Fingerprint(const std::vector<LocalFile>& files) {
-    std::vector<std::pair<std::string, std::string>> pairs;
-    pairs.reserve(files.size());
-    for (const auto& f : files) pairs.emplace_back(f.cloudName, ShaHex(f.sha));
-    std::sort(pairs.begin(), pairs.end());
+    std::vector<const LocalFile*> sorted;
+    sorted.reserve(files.size());
+    for (const auto& f : files) sorted.push_back(&f);
+    std::sort(sorted.begin(), sorted.end(),
+              [](const LocalFile* a, const LocalFile* b) { return a->cloudName < b->cloudName; });
     Json::Value arr = Json::Array();
-    for (const auto& [name, sha] : pairs) {
+    for (const LocalFile* f : sorted) {
         Json::Value o = Json::Object();
-        o.objVal["name"] = Json::String(name);
-        o.objVal["sha"] = Json::String(sha);
+        o.objVal["name"] = Json::String(f->cloudName);
+        o.objVal["sha"] = Json::String(ShaHex(f->sha));
+        o.objVal["path"] = Json::String(f->fullPath);
         arr.arrVal.push_back(std::move(o));
     }
     Json::Value root = Json::Object();
@@ -77,6 +82,55 @@ bool SafeRelative(const std::string& name) {
 
 void SetKeep(uint32_t n) { g_keep.store((std::min)(n, 50u)); }
 uint32_t GetKeep() { return g_keep.load(); }
+void SetMaxAgeDays(uint32_t days) { g_maxAgeDays.store(days); }
+uint32_t GetMaxAgeDays() { return g_maxAgeDays.load(); }
+
+namespace {
+// Snapshot age from its .snapshot.json write time (the folder name is local time).
+bool IsExpired(const fs::path& dir, uint32_t maxAgeDays) {
+    if (maxAgeDays == 0) return false;
+    std::error_code ec;
+    auto written = fs::last_write_time(dir / ".snapshot.json", ec);
+    if (ec) return false;
+    auto age = fs::file_time_type::clock::now() - written;
+    return age > std::chrono::hours(24) * (int64_t)maxAgeDays;
+}
+
+bool IsRedundant(const fs::path& dir,
+                 const std::unordered_map<std::string, std::vector<uint8_t>>& cloudShas) {
+    Json::Value meta = Json::Parse(ReadText(dir / ".snapshot.json"));
+    const Json::Value& files = meta["files"];
+    if (files.type != Json::Type::Array || files.size() == 0) return false;
+    for (size_t i = 0; i < files.size(); i++) {
+        auto it = cloudShas.find(files[i]["name"].str());
+        if (it == cloudShas.end() || ShaHex(it->second) != files[i]["sha"].str()) return false;
+    }
+    return true;
+}
+}  // namespace
+
+size_t PruneRedundantAndExpired(const std::string& cloudRoot, uint32_t accountId, uint32_t appId,
+                                const std::unordered_map<std::string, std::vector<uint8_t>>& cloudShas) {
+    if (cloudRoot.empty() || accountId == 0 || appId == 0) return 0;
+    std::lock_guard<std::mutex> lock(g_mutex);
+    size_t removed = 0;
+    try {
+        const fs::path appDir = FileUtil::Utf8ToPath(cloudRoot) / "local_backups" /
+                                std::to_string(accountId) / std::to_string(appId);
+        const uint32_t maxAge = GetMaxAgeDays();
+        for (const auto& dir : ListSnapshots(appDir)) {
+            if (IsRedundant(dir, cloudShas) || IsExpired(dir, maxAge)) {
+                std::error_code ec;
+                fs::remove_all(dir, ec);
+                if (!ec) ++removed;
+            }
+        }
+        std::error_code ec;
+        if (fs::is_empty(appDir, ec) && !ec) fs::remove(appDir, ec);
+    } catch (...) {
+    }
+    return removed;
+}
 
 bool CloudWouldChangeLocal(const std::vector<LocalFile>& local,
                            const std::unordered_map<std::string, std::vector<uint8_t>>& cloudShas) {
@@ -156,7 +210,9 @@ Result Take(const std::string& cloudRoot, uint32_t accountId, uint32_t appId,
             meta << fingerprint;
         }
 
-        // Prune: keep the newest `keep` snapshot folders.
+        // Prune: drop expired snapshots, then keep the newest `keep` folders.
+        for (const auto& old : ListSnapshots(appDir))
+            if (old != dir && IsExpired(old, GetMaxAgeDays())) fs::remove_all(old, ec);
         auto all = ListSnapshots(appDir);
         while (all.size() > keep) {
             fs::remove_all(all.front(), ec);

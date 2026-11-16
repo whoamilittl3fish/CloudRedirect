@@ -2149,4 +2149,28 @@ Applied on this PC and in the cloud the next time Steam starts. Achievements and
   <data name="History_OpenBackups" xml:space="preserve">
     <value>Local backups</value>
   </data>
+  <data name="History_RestoreButton" xml:space="preserve">
+    <value>Restore local backup ({0})</value>
+  </data>
+  <data name="History_RestoreTitle" xml:space="preserve">
+    <value>Restore local backup</value>
+  </data>
+  <data name="History_RestorePrompt" xml:space="preserve">
+    <value>Put back the {2} save file(s) of {0} backed up on {1}?
+
+Close the game first. Current files that differ, and newer files the backup does not have, are moved into the backup folder (.replaced), not deleted.</value>
+  </data>
+  <data name="History_RestoreDone" xml:space="preserve">
+    <value>Restored {0} file(s).</value>
+  </data>
+  <data name="History_RestoreMovedAside" xml:space="preserve">
+    <value>{0} file(s) that were replaced are kept in:
+{1}</value>
+  </data>
+  <data name="History_RestoreKeepLocal" xml:space="preserve">
+    <value>Next time you start the game, Steam will probably report a cloud conflict: choose the files on this PC (keep local), otherwise the cloud copy overwrites the restored saves.</value>
+  </data>
+  <data name="History_RestoreFailed" xml:space="preserve">
+    <value>Restore failed: {0}</value>
+  </data>
 </root>
