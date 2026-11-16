@@ -2013,4 +2013,44 @@ Esto puede causar pérdida de datos en algunos casos.
   <data name="History_Account" xml:space="preserve">
     <value>cuenta {0}</value>
   </data>
+  <data name="Stats_LockAll" xml:space="preserve">
+    <value>Volver a bloquear todos</value>
+  </data>
+  <data name="Stats_LockOne" xml:space="preserve">
+    <value>Volver a bloquear este logro</value>
+  </data>
+  <data name="Stats_CancelPending" xml:space="preserve">
+    <value>Cancelar pendientes</value>
+  </data>
+  <data name="Stats_LockTitle" xml:space="preserve">
+    <value>Volver a bloquear logros</value>
+  </data>
+  <data name="Stats_LockNeedsSync" xml:space="preserve">
+    <value>La sincronización de logros está desactivada. Activa "Sincronizar logros" en Ajustes primero; si no, CloudRedirect ignora la solicitud.</value>
+  </data>
+  <data name="Stats_LockOnePrompt" xml:space="preserve">
+    <value>¿Volver a bloquear "{0}" en {1}?
+
+Se elimina de las estadísticas locales y en la nube de esta cuenta la próxima vez que se inicie Steam. Otro PC que aún lo tenga desbloqueado puede volver a añadirlo.</value>
+  </data>
+  <data name="Stats_LockAllPrompt" xml:space="preserve">
+    <value>¿Volver a bloquear los {0} logro(s) desbloqueados en {1}?
+
+Se eliminan de las estadísticas locales y en la nube de esta cuenta la próxima vez que se inicie Steam. Otro PC que aún los tenga desbloqueados puede volver a añadirlos.</value>
+  </data>
+  <data name="Stats_LockQueued" xml:space="preserve">
+    <value>En cola. Los logros se bloquean de nuevo la próxima vez que se inicie Steam.</value>
+  </data>
+  <data name="Stats_LockQueuedRestart" xml:space="preserve">
+    <value>En cola. Steam está abierto: reinícialo para aplicarlo.</value>
+  </data>
+  <data name="Stats_LockPending" xml:space="preserve">
+    <value>Bloqueo pendiente (reinicia Steam)</value>
+  </data>
+  <data name="Stats_PendingForApp" xml:space="preserve">
+    <value>{0} logro(s) pendientes de bloquear</value>
+  </data>
+  <data name="Stats_PendingBanner" xml:space="preserve">
+    <value>{0} logro(s) se bloquearán de nuevo la próxima vez que se inicie Steam.</value>
+  </data>
 </root>

@@ -2039,6 +2039,46 @@
   <data name="History_Account" xml:space="preserve">
     <value>账户 {0}</value>
   </data>
+  <data name="Stats_LockAll" xml:space="preserve">
+    <value>全部重新锁定</value>
+  </data>
+  <data name="Stats_LockOne" xml:space="preserve">
+    <value>重新锁定此成就</value>
+  </data>
+  <data name="Stats_CancelPending" xml:space="preserve">
+    <value>取消待处理</value>
+  </data>
+  <data name="Stats_LockTitle" xml:space="preserve">
+    <value>重新锁定成就</value>
+  </data>
+  <data name="Stats_LockNeedsSync" xml:space="preserve">
+    <value>成就同步已关闭。请先在设置中开启“同步成就”，否则 CloudRedirect 会忽略此请求。</value>
+  </data>
+  <data name="Stats_LockOnePrompt" xml:space="preserve">
+    <value>要重新锁定 {1} 中的“{0}”吗？
+
+下次启动 Steam 时，它会从此账户的本地和云端统计中移除。仍解锁该成就的其他电脑可能会把它加回来。</value>
+  </data>
+  <data name="Stats_LockAllPrompt" xml:space="preserve">
+    <value>要重新锁定 {1} 中全部 {0} 个已解锁成就吗？
+
+下次启动 Steam 时，它们会从此账户的本地和云端统计中移除。仍解锁这些成就的其他电脑可能会把它们加回来。</value>
+  </data>
+  <data name="Stats_LockQueued" xml:space="preserve">
+    <value>已加入队列。下次启动 Steam 时将重新锁定这些成就。</value>
+  </data>
+  <data name="Stats_LockQueuedRestart" xml:space="preserve">
+    <value>已加入队列。Steam 正在运行：请重启 Steam 以应用。</value>
+  </data>
+  <data name="Stats_LockPending" xml:space="preserve">
+    <value>等待重新锁定（重启 Steam）</value>
+  </data>
+  <data name="Stats_PendingForApp" xml:space="preserve">
+    <value>{0} 个成就等待重新锁定</value>
+  </data>
+  <data name="Stats_PendingBanner" xml:space="preserve">
+    <value>下次启动 Steam 时将重新锁定 {0} 个成就。</value>
+  </data>
 </root>
 
 

@@ -103,6 +103,7 @@ public partial class StatsPage : Page
                 var app = TryParse(appId, entry.Content);
                 if (app == null) { Log($"  parse failed for {entry.AccountId}/{entry.AppId}"); continue; }
                 app.AccountId = entry.AccountId;
+                MarkPending(app);
                 list.Add(app);
             }
 
@@ -117,6 +118,7 @@ public partial class StatsPage : Page
             return list;
         });
         Log($"Parsed {apps.Count} app(s) into view.");
+        UpdatePendingBanner();
 
         _apps.Clear();
         _apps.AddRange(apps);
@@ -250,6 +252,78 @@ public partial class StatsPage : Page
         {
             return null;
         }
+    }
+
+    // ── Re-lock achievements (applied by the DLL on the next Steam start) ──
+
+    private static void MarkPending(StatApp app)
+    {
+        var pending = PendingAchievementEdits.GetPending(app.AccountId, app.AppId.ToString());
+        foreach (var a in app.Achievements)
+        {
+            a.Owner = app;
+            a.Pending = pending.Contains((a.StatId, a.Bit));
+        }
+    }
+
+    private void UpdatePendingBanner()
+    {
+        int n = PendingAchievementEdits.CountAll();
+        PendingBanner.Text = S.Format("Stats_PendingBanner", n);
+        PendingBanner.Visibility = n > 0 ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    private async Task<bool> QueueLocksAsync(StatApp app, IReadOnlyList<AchievementEntry> targets, string prompt)
+    {
+        if (targets.Count == 0) return false;
+        if (!PendingAchievementEdits.IsAchievementSyncEnabled())
+        {
+            await Dialog.ShowWarningAsync(S.Get("Stats_LockTitle"), S.Get("Stats_LockNeedsSync"));
+            return false;
+        }
+        if (!await Dialog.ConfirmDangerAsync(S.Get("Stats_LockTitle"), prompt)) return false;
+
+        try
+        {
+            PendingAchievementEdits.Add(app.AccountId, app.AppId.ToString(),
+                targets.Select(t => new PendingAchievementEdits.Lock(t.Name, t.StatId, t.Bit)));
+        }
+        catch (Exception ex)
+        {
+            Log($"pending_edits write failed: {ex}");
+            await Dialog.ShowErrorAsync(S.Get("Stats_LockTitle"), ex.Message);
+            return false;
+        }
+        foreach (var t in targets) t.Pending = true;
+        app.NotifyPendingChanged();
+        UpdatePendingBanner();
+
+        bool steamRunning = System.Diagnostics.Process.GetProcessesByName("steam").Length > 0;
+        await Dialog.ShowInfoAsync(S.Get("Stats_LockTitle"),
+            S.Get(steamRunning ? "Stats_LockQueuedRestart" : "Stats_LockQueued"));
+        return true;
+    }
+
+    private async void LockAchievement_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: AchievementEntry a } || a.Owner == null) return;
+        await QueueLocksAsync(a.Owner, new[] { a }, S.Format("Stats_LockOnePrompt", a.Label, a.Owner.DisplayName));
+    }
+
+    private async void LockAllAchievements_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: StatApp app }) return;
+        var targets = app.Achievements.Where(x => x.Unlocked && !x.Pending).ToList();
+        await QueueLocksAsync(app, targets, S.Format("Stats_LockAllPrompt", targets.Count, app.DisplayName));
+    }
+
+    private void CancelPending_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: StatApp app }) return;
+        PendingAchievementEdits.Cancel(app.AccountId, app.AppId.ToString());
+        foreach (var a in app.Achievements) a.Pending = false;
+        app.NotifyPendingChanged();
+        UpdatePendingBanner();
     }
 
     private static uint GetU32(JsonElement obj, string name) =>
@@ -417,6 +491,20 @@ public partial class StatsPage : Page
             }
         }
 
+        public int PendingCount => Achievements.Count(a => a.Pending);
+        public Visibility LockAllVisibility =>
+            Achievements.Any(a => a.Unlocked && !a.Pending) ? Visibility.Visible : Visibility.Collapsed;
+        public Visibility CancelPendingVisibility => PendingCount > 0 ? Visibility.Visible : Visibility.Collapsed;
+        public string PendingText => S.Format("Stats_PendingForApp", PendingCount);
+
+        public void NotifyPendingChanged()
+        {
+            Notify(nameof(PendingCount));
+            Notify(nameof(LockAllVisibility));
+            Notify(nameof(CancelPendingVisibility));
+            Notify(nameof(PendingText));
+        }
+
         public bool HasAchievements => Achievements.Count > 0;
         public bool HasStats => Stats.Count > 0;
         public Visibility AchievementsVisibility => HasAchievements ? Visibility.Visible : Visibility.Collapsed;
@@ -440,8 +528,26 @@ public partial class StatsPage : Page
         public string ValueText => Value.ToString(CultureInfo.CurrentCulture);
     }
 
-    internal class AchievementEntry
+    internal class AchievementEntry : INotifyPropertyChanged
     {
+        public StatApp? Owner { get; set; }
+
+        private bool _pending;
+        // Queued in pending_edits.json; the DLL locks it on the next Steam start.
+        public bool Pending
+        {
+            get => _pending;
+            set
+            {
+                _pending = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Pending)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(UnlockText)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(LockVisibility)));
+            }
+        }
+        public Visibility LockVisibility => Unlocked && !Pending ? Visibility.Visible : Visibility.Collapsed;
+        public event PropertyChangedEventHandler? PropertyChanged;
+
         public uint StatId { get; set; }
         public int Bit { get; set; }
         public bool Unlocked { get; set; }
@@ -453,7 +559,8 @@ public partial class StatsPage : Page
             ? Name
             : S.Format("Stats_AchievementBit", StatId, Bit);
         public string UnlockText =>
-            Unlocked ? FormatUnixTime(UnlockUnix) : S.Get("Stats_Locked");
+            Pending ? S.Get("Stats_LockPending")
+            : Unlocked ? FormatUnixTime(UnlockUnix) : S.Get("Stats_Locked");
         public SymbolRegular StatusSymbol =>
             Unlocked ? SymbolRegular.Trophy24 : SymbolRegular.LockClosed24;
         public System.Windows.Media.Brush StatusBrush =>

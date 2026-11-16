@@ -35,6 +35,13 @@
                        TextWrapping="Wrap"
                        Margin="0,0,0,24" />
 
+            <!-- Achievement locks queued for the next Steam start -->
+            <TextBlock x:Name="PendingBanner"
+                       Foreground="{DynamicResource SystemFillColorCautionBrush}"
+                       TextWrapping="Wrap"
+                       Margin="0,-12,0,16"
+                       Visibility="Collapsed" />
+
             <!-- Search -->
             <ui:TextBox x:Name="SearchBox"
                         PlaceholderText="{res:Loc Search_Placeholder}"
@@ -169,10 +176,33 @@
 
                                     <!-- Achievements -->
                                     <StackPanel Visibility="{Binding AchievementsVisibility}" Margin="0,0,0,8">
-                                        <TextBlock Text="{res:Loc Stats_AchievementsHeader}"
-                                                   FontSize="15" FontWeight="SemiBold"
-                                                   Foreground="{DynamicResource TextFillColorPrimaryBrush}"
-                                                   Margin="0,0,0,6" />
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0"
+                                                       Text="{res:Loc Stats_AchievementsHeader}"
+                                                       FontSize="15" FontWeight="SemiBold"
+                                                       VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                            <ui:Button Grid.Column="1"
+                                                       Appearance="Secondary"
+                                                       Content="{res:Loc Stats_CancelPending}"
+                                                       ToolTip="{Binding PendingText}"
+                                                       Visibility="{Binding CancelPendingVisibility}"
+                                                       Tag="{Binding}"
+                                                       Click="CancelPending_Click"
+                                                       Margin="0,0,8,0" />
+                                            <ui:Button Grid.Column="2"
+                                                       Appearance="Danger"
+                                                       Icon="{ui:SymbolIcon LockClosed24}"
+                                                       Content="{res:Loc Stats_LockAll}"
+                                                       Visibility="{Binding LockAllVisibility}"
+                                                       Tag="{Binding}"
+                                                       Click="LockAllAchievements_Click" />
+                                        </Grid>
                                         <ItemsControl ItemsSource="{Binding Achievements}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
@@ -181,7 +211,22 @@
                                                             <ColumnDefinition Width="Auto" />
                                                             <ColumnDefinition Width="*" />
                                                             <ColumnDefinition Width="Auto" />
+                                                            <ColumnDefinition Width="Auto" />
                                                         </Grid.ColumnDefinitions>
+                                                        <Button Grid.Column="3"
+                                                                Click="LockAchievement_Click"
+                                                                Tag="{Binding}"
+                                                                Visibility="{Binding LockVisibility}"
+                                                                ToolTip="{res:Loc Stats_LockOne}"
+                                                                Background="Transparent"
+                                                                BorderBrush="Transparent"
+                                                                Padding="6,0"
+                                                                Margin="8,0,0,0"
+                                                                VerticalAlignment="Center">
+                                                            <ui:SymbolIcon Symbol="LockClosed24"
+                                                                           FontSize="14"
+                                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                        </Button>
                                                         <ui:SymbolIcon Grid.Column="0"
                                                                        Symbol="{Binding StatusSymbol}"
                                                                        FontSize="18"

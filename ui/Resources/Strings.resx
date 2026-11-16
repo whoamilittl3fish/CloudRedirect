@@ -2066,4 +2066,44 @@ Are you sure?</value>
   <data name="History_Account" xml:space="preserve">
     <value>account {0}</value>
   </data>
+  <data name="Stats_LockAll" xml:space="preserve">
+    <value>Re-lock all</value>
+  </data>
+  <data name="Stats_LockOne" xml:space="preserve">
+    <value>Re-lock this achievement</value>
+  </data>
+  <data name="Stats_CancelPending" xml:space="preserve">
+    <value>Cancel pending</value>
+  </data>
+  <data name="Stats_LockTitle" xml:space="preserve">
+    <value>Re-lock achievements</value>
+  </data>
+  <data name="Stats_LockNeedsSync" xml:space="preserve">
+    <value>Achievement sync is off. Turn on "Sync Achievements" in Settings first; otherwise CloudRedirect ignores the request.</value>
+  </data>
+  <data name="Stats_LockOnePrompt" xml:space="preserve">
+    <value>Re-lock "{0}" in {1}?
+
+It is removed from this account's local and cloud stats the next time Steam starts. Another PC that still has it unlocked can add it back.</value>
+  </data>
+  <data name="Stats_LockAllPrompt" xml:space="preserve">
+    <value>Re-lock all {0} unlocked achievement(s) in {1}?
+
+They are removed from this account's local and cloud stats the next time Steam starts. Another PC that still has them unlocked can add them back.</value>
+  </data>
+  <data name="Stats_LockQueued" xml:space="preserve">
+    <value>Queued. The achievements are re-locked the next time Steam starts.</value>
+  </data>
+  <data name="Stats_LockQueuedRestart" xml:space="preserve">
+    <value>Queued. Steam is running: restart Steam to apply.</value>
+  </data>
+  <data name="Stats_LockPending" xml:space="preserve">
+    <value>Re-lock pending (restart Steam)</value>
+  </data>
+  <data name="Stats_PendingForApp" xml:space="preserve">
+    <value>{0} achievement(s) waiting to be re-locked</value>
+  </data>
+  <data name="Stats_PendingBanner" xml:space="preserve">
+    <value>{0} achievement(s) will be re-locked the next time Steam starts.</value>
+  </data>
 </root>

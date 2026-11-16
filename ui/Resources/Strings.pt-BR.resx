@@ -2018,4 +2018,44 @@ Tem certeza?</value>
   <data name="History_Account" xml:space="preserve">
     <value>conta {0}</value>
   </data>
+  <data name="Stats_LockAll" xml:space="preserve">
+    <value>Bloquear todas novamente</value>
+  </data>
+  <data name="Stats_LockOne" xml:space="preserve">
+    <value>Bloquear esta conquista novamente</value>
+  </data>
+  <data name="Stats_CancelPending" xml:space="preserve">
+    <value>Cancelar pendentes</value>
+  </data>
+  <data name="Stats_LockTitle" xml:space="preserve">
+    <value>Bloquear conquistas novamente</value>
+  </data>
+  <data name="Stats_LockNeedsSync" xml:space="preserve">
+    <value>A sincronização de conquistas está desativada. Ative "Sincronizar conquistas" nas Configurações primeiro; caso contrário, o CloudRedirect ignora o pedido.</value>
+  </data>
+  <data name="Stats_LockOnePrompt" xml:space="preserve">
+    <value>Bloquear "{0}" em {1} novamente?
+
+Ela é removida das estatísticas locais e na nuvem desta conta na próxima vez que o Steam iniciar. Outro PC que ainda a tenha desbloqueada pode adicioná-la de volta.</value>
+  </data>
+  <data name="Stats_LockAllPrompt" xml:space="preserve">
+    <value>Bloquear novamente as {0} conquista(s) desbloqueadas em {1}?
+
+Elas são removidas das estatísticas locais e na nuvem desta conta na próxima vez que o Steam iniciar. Outro PC que ainda as tenha desbloqueadas pode adicioná-las de volta.</value>
+  </data>
+  <data name="Stats_LockQueued" xml:space="preserve">
+    <value>Na fila. As conquistas serão bloqueadas na próxima vez que o Steam iniciar.</value>
+  </data>
+  <data name="Stats_LockQueuedRestart" xml:space="preserve">
+    <value>Na fila. O Steam está aberto: reinicie-o para aplicar.</value>
+  </data>
+  <data name="Stats_LockPending" xml:space="preserve">
+    <value>Bloqueio pendente (reinicie o Steam)</value>
+  </data>
+  <data name="Stats_PendingForApp" xml:space="preserve">
+    <value>{0} conquista(s) aguardando bloqueio</value>
+  </data>
+  <data name="Stats_PendingBanner" xml:space="preserve">
+    <value>{0} conquista(s) serão bloqueadas novamente na próxima vez que o Steam iniciar.</value>
+  </data>
 </root>
