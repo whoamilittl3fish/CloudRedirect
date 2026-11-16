@@ -589,6 +589,18 @@ Force-kill it?</value>
   <data name="CloudProvider_R2CredSaved" xml:space="preserve">
     <value>Credentials saved successfully</value>
   </data>
+  <data name="CloudProvider_TestConnection" xml:space="preserve">
+    <value>Test Connection</value>
+  </data>
+  <data name="CloudProvider_Testing" xml:space="preserve">
+    <value>Testing connection...</value>
+  </data>
+  <data name="CloudProvider_TestOk" xml:space="preserve">
+    <value>Connected. The bucket accepted the credentials.</value>
+  </data>
+  <data name="CloudProvider_TestFailed" xml:space="preserve">
+    <value>Connection failed: {0}</value>
+  </data>
   <data name="CloudProvider_R2CredFound" xml:space="preserve">
     <value>Credentials configured</value>
   </data>
@@ -1633,6 +1645,15 @@ Are you sure?</value>
   </data>
   <data name="CloudProvider_UploadInFlightAggressive" xml:space="preserve">
     <value>Aggressive (64)</value>
+  </data>
+  <data name="CloudProvider_UploadWorkers" xml:space="preserve">
+    <value>Parallel Uploads</value>
+  </data>
+  <data name="CloudProvider_UploadWorkersHint" xml:space="preserve">
+    <value>Number of files uploaded at the same time. Higher values can speed up many-file syncs on S3/R2; very high values may hit provider rate limits and use more memory. Changes take effect after restarting Steam.</value>
+  </data>
+  <data name="CloudProvider_UploadWorkersValue" xml:space="preserve">
+    <value>{0} workers</value>
   </data>
   <data name="Settings_SyncLuas" xml:space="preserve">
     <value>Sync Lua Files</value>

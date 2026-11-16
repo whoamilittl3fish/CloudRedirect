@@ -588,6 +588,18 @@
   <data name="CloudProvider_R2CredSaved" xml:space="preserve">
     <value>凭据保存成功</value>
   </data>
+  <data name="CloudProvider_TestConnection" xml:space="preserve">
+    <value>测试连接</value>
+  </data>
+  <data name="CloudProvider_Testing" xml:space="preserve">
+    <value>正在测试连接...</value>
+  </data>
+  <data name="CloudProvider_TestOk" xml:space="preserve">
+    <value>已连接，存储桶接受了凭据。</value>
+  </data>
+  <data name="CloudProvider_TestFailed" xml:space="preserve">
+    <value>连接失败：{0}</value>
+  </data>
   <data name="CloudProvider_R2CredFound" xml:space="preserve">
     <value>凭据已配置</value>
   </data>
@@ -754,6 +766,15 @@
   </data>
   <data name="CloudProvider_UploadInFlightAggressive" xml:space="preserve">
     <value>激进 (64)</value>
+  </data>
+  <data name="CloudProvider_UploadWorkers" xml:space="preserve">
+    <value>并行上传数</value>
+  </data>
+  <data name="CloudProvider_UploadWorkersHint" xml:space="preserve">
+    <value>同时上传的文件数量。增大可加快 S3/R2 上多文件同步；过高可能触发提供商限流并占用更多内存。更改在重启 Steam 后生效。</value>
+  </data>
+  <data name="CloudProvider_UploadWorkersValue" xml:space="preserve">
+    <value>{0} 个线程</value>
   </data>
 
   <!-- ═══════════════════════════════════════════════════════════════════ -->

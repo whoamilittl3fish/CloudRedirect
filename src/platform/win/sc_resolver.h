@@ -61,8 +61,13 @@ struct ResolvedAddrs {
     uint32_t ccmOffConnContext;           // CCMInterface -> connection context ptr
     uint32_t userOffCcmInterface;         // CBaseUser -> CCMInterface
     uint32_t engineOffAppInfoCache;       // CSteamEngine -> CAppInfoCache
+    uint32_t cpbConnOff;                  // CProtoBufMsgBase -> connection handle
+    uint32_t cpbEmsgOff;                  // CProtoBufMsgBase -> EMsg | PROTO_FLAG
+    uint32_t cpbHdrOff;                   // CProtoBufMsgBase -> header object ptr
+    uint32_t cpbBodyOff;                  // CProtoBufMsgBase -> protobuf body object ptr
 
     // ── KV Injector ────────────────────────────────────────────────────
+    uintptr_t kvEngine;                   // &g_pCSteamEngine as used at GetAppInfo call sites
     uintptr_t getAppInfo;                 // CAppInfoCache::GetAppInfo
     uintptr_t getSection;                 // CAppInfoCache::GetSection
     uintptr_t readConfigU64;              // CAppInfoCache::ReadAppConfigUint64
