@@ -1976,4 +1976,46 @@ Tem certeza?</value>
     <value>Escaneando provedor de origem...</value>
   </data>
 
+  <data name="Nav_SyncHistory" xml:space="preserve">
+    <value>Histórico de sincronização</value>
+  </data>
+  <data name="History_Refresh" xml:space="preserve">
+    <value>Atualizar</value>
+  </data>
+  <data name="History_OpenFolder" xml:space="preserve">
+    <value>Abrir pasta</value>
+  </data>
+  <data name="History_Hint" xml:space="preserve">
+    <value>O que o CloudRedirect fez com os saves de cada jogo: envios, falhas e a causa, conflitos e saves encontrados fora da pasta sincronizada. Mais recentes primeiro.</value>
+  </data>
+  <data name="History_Empty" xml:space="preserve">
+    <value>Ainda não há eventos de sincronização. Eles aparecem depois que um jogo sincroniza com esta versão da DLL.</value>
+  </data>
+  <data name="History_LoadFailed" xml:space="preserve">
+    <value>Não foi possível ler o histórico de sincronização: {0}</value>
+  </data>
+  <data name="History_Ev_Upload" xml:space="preserve">
+    <value>Enviado(s) {0} arquivo(s), removido(s) {1} (alteração {2})</value>
+  </data>
+  <data name="History_Ev_UploadFailed" xml:space="preserve">
+    <value>Falha no envio</value>
+  </data>
+  <data name="History_Ev_Conflict" xml:space="preserve">
+    <value>Conflito de saves</value>
+  </data>
+  <data name="History_Ev_CloudUnreachable" xml:space="preserve">
+    <value>Não foi possível acessar a nuvem</value>
+  </data>
+  <data name="History_Ev_SaveNotSynced" xml:space="preserve">
+    <value>Saves fora da pasta sincronizada</value>
+  </data>
+  <data name="History_LastUpload" xml:space="preserve">
+    <value>Último envio bem-sucedido: {0}</value>
+  </data>
+  <data name="History_NoUploadYet" xml:space="preserve">
+    <value>Nenhum envio bem-sucedido registrado ainda</value>
+  </data>
+  <data name="History_Account" xml:space="preserve">
+    <value>conta {0}</value>
+  </data>
 </root>

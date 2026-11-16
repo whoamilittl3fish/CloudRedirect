@@ -2024,4 +2024,46 @@ Are you sure?</value>
     <value>Scanning source provider...</value>
   </data>
 
+  <data name="Nav_SyncHistory" xml:space="preserve">
+    <value>Sync History</value>
+  </data>
+  <data name="History_Refresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="History_OpenFolder" xml:space="preserve">
+    <value>Open folder</value>
+  </data>
+  <data name="History_Hint" xml:space="preserve">
+    <value>What CloudRedirect did with each game's saves: uploads, failures and their cause, conflicts, and saves it found outside the synced folder. Newest first.</value>
+  </data>
+  <data name="History_Empty" xml:space="preserve">
+    <value>No sync events yet. Events appear after a game syncs with this version of the DLL.</value>
+  </data>
+  <data name="History_LoadFailed" xml:space="preserve">
+    <value>Could not read the sync history: {0}</value>
+  </data>
+  <data name="History_Ev_Upload" xml:space="preserve">
+    <value>Uploaded {0} file(s), removed {1} (change {2})</value>
+  </data>
+  <data name="History_Ev_UploadFailed" xml:space="preserve">
+    <value>Upload failed</value>
+  </data>
+  <data name="History_Ev_Conflict" xml:space="preserve">
+    <value>Save conflict</value>
+  </data>
+  <data name="History_Ev_CloudUnreachable" xml:space="preserve">
+    <value>Could not reach the cloud</value>
+  </data>
+  <data name="History_Ev_SaveNotSynced" xml:space="preserve">
+    <value>Saves outside the synced folder</value>
+  </data>
+  <data name="History_LastUpload" xml:space="preserve">
+    <value>Last successful upload: {0}</value>
+  </data>
+  <data name="History_NoUploadYet" xml:space="preserve">
+    <value>No successful upload recorded yet</value>
+  </data>
+  <data name="History_Account" xml:space="preserve">
+    <value>account {0}</value>
+  </data>
 </root>

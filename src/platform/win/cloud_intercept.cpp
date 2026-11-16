@@ -3,6 +3,7 @@
 #include "rpc_handlers.h"
 #include "stats_handlers.h"
 #include "stats_store.h"
+#include "sync_history.h"
 #include "app_state.h"
 #include "protobuf.h"
 #include "parental_bypass.h"
@@ -4906,6 +4907,7 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
         std::thread([appId] { RequestSchemaForApp(appId, true); }).detach();
     });
     StatsStore::Init(cloudRoot, g_steamPath);
+    SyncHistory::Init(cloudRoot);
     StatsHandlers::Init();
     // Seed on bg thread only if a stats feature is enabled (blocks on cloud reads).
     // Third-party: check raw config flags since StGateOpen() is false.

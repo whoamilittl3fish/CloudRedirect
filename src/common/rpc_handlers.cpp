@@ -19,6 +19,7 @@
 #include "vdf.h"
 #include "log.h"
 #include "json.h"
+#include "sync_history.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
@@ -44,6 +45,22 @@ namespace CloudIntercept {
 
 // per-app upload batch tracking -- state lives in batch_tracker.cpp
 
+// Sync history for the companion app (see sync_history.h).
+static uint32_t CountSyncedFiles(const std::vector<std::string>& names);
+static void RecordHistory(uint32_t accountId, uint32_t appId, const char* kind, bool ok,
+                          std::string msg, uint64_t cn = 0, uint32_t files = 0,
+                          uint32_t deleted = 0) {
+    SyncHistory::Event ev;
+    ev.appId = appId;
+    ev.kind = kind;
+    ev.ok = ok;
+    ev.cn = cn;
+    ev.files = files;
+    ev.deleted = deleted;
+    ev.msg = std::move(msg);
+    SyncHistory::Record(accountId, ev);
+}
+
 static std::mutex g_conflictMutex;
 static std::unordered_set<uint32_t> g_conflictKeepLocal;
 
@@ -56,6 +73,8 @@ void RecordConflictResolution(uint32_t appId, bool choseLocal) {
         g_conflictKeepLocal.erase(appId);
         LOG("[NS] ConflictResolution app=%u: user chose keep-cloud", appId);
     }
+    RecordHistory(GetAccountId(), appId, SyncHistory::kConflict, true,
+                  choseLocal ? "kept local files" : "kept cloud files");
 }
 
 bool ConsumeConflictLocalChoice(uint32_t appId) {
@@ -694,10 +713,27 @@ RpcResult HandleGetChangelist(uint32_t appId, const std::vector<PB::Field>& reqB
             inconclusiveFetch = true;
             LOG("[NS-CL] GetAppFileChangelist app=%u: cloud fetch timed out, using local "
                 "(avoids BMainLoop stall; cache warms in background)", appId);
+            {
+                SyncHistory::Event ev;
+                ev.appId = appId;
+                ev.kind = SyncHistory::kCloudUnreachable;
+                ev.ok = false;
+                ev.msg = "cloud did not answer in time";
+                SyncHistory::RecordThrottled(accountId, ev, 600);
+            }
         } else {
             inconclusiveFetch = true;
             LOG("[NS-CL] GetAppFileChangelist app=%u: cloud state fetch failed (status=%d), using local",
                 appId, static_cast<int>(stateResult.status));
+            {
+                SyncHistory::Event ev;
+                ev.appId = appId;
+                ev.kind = SyncHistory::kCloudUnreachable;
+                ev.ok = false;
+                ev.msg = "could not read cloud state (status " +
+                         std::to_string(static_cast<int>(stateResult.status)) + ")";
+                SyncHistory::RecordThrottled(accountId, ev, 600);
+            }
         }
     }
 
@@ -2001,6 +2037,9 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
     if (!*promoteOk) {
         LOG("[NS] CompleteBatch app=%u: staged promotion failed; "
             "leaving CN unchanged (Steam re-uploads next sync)", appId);
+        RecordHistory(accountId, appId, SyncHistory::kUploadFailed, false,
+                      "could not store the uploaded files locally; Steam retries next sync",
+                      0, CountSyncedFiles(*uploads), (uint32_t)deletes->size());
         PendingOpsJournal::RecordUploadBatchInterrupted(accountId, appId);
         BatchTracker_Clear(accountId, appId, batch.batchId);
         ClearBatchCanonicalTokens(accountId, appId);
@@ -2051,7 +2090,9 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
     std::promise<void> publishPromise;
     CloudStorage::SetPendingPublish(accountId, appId, publishPromise.get_future().share());
 
-    std::thread([accountId, appId, publishCN, publishBuildId,
+    const uint32_t historyFiles = CountSyncedFiles(*uploads);
+    const uint32_t historyDeleted = (uint32_t)deletes->size();
+    std::thread([accountId, appId, publishCN, publishBuildId, historyFiles, historyDeleted,
                  uploadMetaCopy, filePlatformsCopy, uploadsCopy, deletesCopy,
                  publishPromise = std::move(publishPromise)]() mutable {
         CloudStorage::InflightSyncScope pubGuard;
@@ -2096,8 +2137,11 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
                     appId, publishState.cn, publishCN);
                 // Equal CN means an earlier attempt of this same batch already landed.
                 // Greater means another writer: leave the cache so the probe invalidates it.
-                if (publishState.cn == publishCN)
+                if (publishState.cn == publishCN) {
                     NoteOwnPublishedCN(accountId, appId, publishCN, publishBuildId);
+                    RecordHistory(accountId, appId, SyncHistory::kUpload, true,
+                                  "already in the cloud", publishCN, historyFiles, historyDeleted);
+                }
                 publishSucceeded = true;
                 break;
             }
@@ -2187,6 +2231,10 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
                 LOG("[NS] CompleteBatch(pub): publish %d/%d succeeded for app %u at CN=%llu",
                     attempt, kMaxAttempts, appId, (unsigned long long)publishCN);
                 NoteOwnPublishedCN(accountId, appId, publishCN, publishBuildId);
+                RecordHistory(accountId, appId, SyncHistory::kUpload, true,
+                              attempt > 1 ? "published after " + std::to_string(attempt) + " attempts"
+                                          : std::string(),
+                              publishCN, historyFiles, historyDeleted);
                 if (!evicted.empty()) {
                     auto m = CloudStorage::LoadLocalManifest(accountId, appId);
                     for (const auto& name : evicted) {
@@ -2208,6 +2256,11 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
             // RecordUploadBatchEnd here would drop the marker and let stale cloud
             // state overwrite unpublished saves.
             PendingOpsJournal::RecordUploadBatchInterrupted(accountId, appId);
+            RecordHistory(accountId, appId, SyncHistory::kUploadFailed, false,
+                          "files are stored but the cloud state could not be published after " +
+                              std::to_string(kMaxAttempts) +
+                              " attempts; it is retried at the next sync",
+                          publishCN, historyFiles, historyDeleted);
             LOG("[NS] CompleteBatch(pub): all publish attempts exhausted for app %u "
                 "-- upload left pending", appId);
         }
@@ -2226,6 +2279,13 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
 
     PB::Writer body;
     return body;
+}
+
+static uint32_t CountSyncedFiles(const std::vector<std::string>& names) {
+    uint32_t n = 0;
+    for (const auto& name : names)
+        if (!IsReservedBlobFilename(name)) ++n;
+    return n;
 }
 
 // ClientFileDownload

@@ -5,6 +5,7 @@
 #include "live_playtime.h"
 
 #include "stats_store.h"
+#include "sync_history.h"
 #include "stats_handlers.h"
 #include "metadata_sync.h"
 #include "rpc_handlers.h"
@@ -503,6 +504,7 @@ static void EnsureInitialized() {
         StatsStore::SetAccountIdProvider(
             []() -> uint32_t { return CloudIntercept::GetAccountId(); });
         StatsStore::Init(cloudRedirectRoot, CloudIntercept::GetSteamPath());
+        SyncHistory::Init(cloudRedirectRoot);
         StatsHandlers::Init();
         // Seed managed apps on a background thread: SeedApps does a cloud read per
         // app, which on the init thread would block Steam's userdata load. The store

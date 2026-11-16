@@ -3,6 +3,7 @@
 #include "file_util.h"
 #include "log.h"
 #include "steam_root_ids.h"
+#include "sync_history.h"
 #include "vdf.h"
 #ifdef _WIN32
 #include <ShlObj.h>
@@ -813,11 +814,20 @@ static void MaybeLinkTicketOwnerSaveDir(const std::string& steamPath, uint32_t a
         std::filesystem::directory_iterator it(ownerDir, ec);
         if (ec) return;
         if (it != std::filesystem::directory_iterator()) {
-            if (noticeOnce("has-files"))
+            if (noticeOnce("has-files")) {
                 LOG("[TicketLink] app %u: game saves under ticket account %u are not synced and "
                     "were left untouched: %s -- merge them into %s and replace the folder with a "
                     "junction (SaveLinkAll.ps1 does this)",
                     appId, owner, ownerUtf8.c_str(), realUtf8.c_str());
+                SyncHistory::Event ev;
+                ev.appId = appId;
+                ev.kind = SyncHistory::kSaveNotSynced;
+                ev.ok = false;
+                ev.msg = "the game saves to " + ownerUtf8 + " (ticket account " +
+                         std::to_string(owner) + "), which is not synced; merge it into " +
+                         realUtf8 + " and link it (SaveLinkAll.ps1)";
+                SyncHistory::Record(accountId, ev);
+            }
             return;
         }
         if (!RemoveDirectoryW(ownerDir.c_str())) {

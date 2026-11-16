@@ -118,6 +118,9 @@
                 <ui:NavigationViewItem Content="{res:Loc Nav_Stats}"
                                          Icon="{ui:SymbolIcon Trophy24}"
                                          TargetPageType="{x:Type pages:StatsPage}" />
+                <ui:NavigationViewItem Content="{res:Loc Nav_SyncHistory}"
+                                         Icon="{ui:SymbolIcon History24}"
+                                         TargetPageType="{x:Type pages:SyncHistoryPage}" />
                 <ui:NavigationViewItem x:Name="NavMigration"
                                          Content="{res:Loc Nav_Migration}"
                                          Icon="{ui:SymbolIcon ArrowSync24}"

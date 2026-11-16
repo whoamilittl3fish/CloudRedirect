@@ -83,6 +83,7 @@ set(COMMON_SOURCES
     src/common/sigv4.cpp
     src/common/sha256_hmac.cpp
     src/common/autocloud_scan.cpp
+    src/common/sync_history.cpp
     src/common/steam_kv_injector.cpp
     src/common/parental_bypass.cpp
     src/common/metadata_sync.cpp
@@ -261,6 +262,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
             src/common/local_storage.cpp
             src/common/local_metadata_store.cpp
         src/common/autocloud_scan.cpp
+        src/common/sync_history.cpp
         src/common/vdf.cpp
             src/platform/win/log.cpp
             src/platform/win/platform_win.cpp
@@ -363,6 +365,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
         src/common/sigv4.cpp
         src/common/sha256_hmac.cpp
         src/common/autocloud_scan.cpp
+        src/common/sync_history.cpp
         src/common/vdf.cpp
         src/common/miniz.c
         src/common/miniz_tdef.c
@@ -470,6 +473,24 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
 endif()
 
 # Individually-guarded tests, so a partial tests/ tree still builds.
+if(EXISTS ${CMAKE_SOURCE_DIR}/tests/sync_history_tests.cpp
+   AND NOT TARGET sync_history_tests)
+    add_executable(sync_history_tests
+        tests/sync_history_tests.cpp
+        src/common/sync_history.cpp
+        src/common/json.cpp
+    )
+    target_include_directories(sync_history_tests PRIVATE src/common)
+    if(WIN32)
+        target_include_directories(sync_history_tests PRIVATE src/platform/win)
+        target_sources(sync_history_tests PRIVATE src/platform/win/log.cpp src/platform/win/platform_win.cpp)
+    else()
+        target_include_directories(sync_history_tests PRIVATE src/platform/linux)
+        target_sources(sync_history_tests PRIVATE src/platform/linux/log.cpp src/platform/linux/platform_linux.cpp)
+    endif()
+    add_test(NAME sync_history_tests COMMAND sync_history_tests)
+endif()
+
 if(EXISTS ${CMAKE_SOURCE_DIR}/tests/pending_ops_journal_tests.cpp
    AND NOT TARGET pending_ops_journal_tests)
     add_executable(pending_ops_journal_tests

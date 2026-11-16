@@ -1971,4 +1971,46 @@ Esto puede causar pérdida de datos en algunos casos.
   <data name="Migration_ScanningSource" xml:space="preserve">
     <value>Escaneando proveedor de origen...</value>
   </data>
+  <data name="Nav_SyncHistory" xml:space="preserve">
+    <value>Historial de sincronización</value>
+  </data>
+  <data name="History_Refresh" xml:space="preserve">
+    <value>Actualizar</value>
+  </data>
+  <data name="History_OpenFolder" xml:space="preserve">
+    <value>Abrir carpeta</value>
+  </data>
+  <data name="History_Hint" xml:space="preserve">
+    <value>Lo que CloudRedirect hizo con las partidas de cada juego: subidas, fallos y su causa, conflictos y partidas encontradas fuera de la carpeta sincronizada. Lo más reciente primero.</value>
+  </data>
+  <data name="History_Empty" xml:space="preserve">
+    <value>Aún no hay eventos de sincronización. Aparecen cuando un juego se sincroniza con esta versión de la DLL.</value>
+  </data>
+  <data name="History_LoadFailed" xml:space="preserve">
+    <value>No se pudo leer el historial de sincronización: {0}</value>
+  </data>
+  <data name="History_Ev_Upload" xml:space="preserve">
+    <value>Subidos {0} archivo(s), eliminados {1} (cambio {2})</value>
+  </data>
+  <data name="History_Ev_UploadFailed" xml:space="preserve">
+    <value>Error al subir</value>
+  </data>
+  <data name="History_Ev_Conflict" xml:space="preserve">
+    <value>Conflicto de partidas</value>
+  </data>
+  <data name="History_Ev_CloudUnreachable" xml:space="preserve">
+    <value>No se pudo conectar con la nube</value>
+  </data>
+  <data name="History_Ev_SaveNotSynced" xml:space="preserve">
+    <value>Partidas fuera de la carpeta sincronizada</value>
+  </data>
+  <data name="History_LastUpload" xml:space="preserve">
+    <value>Última subida correcta: {0}</value>
+  </data>
+  <data name="History_NoUploadYet" xml:space="preserve">
+    <value>Aún no hay ninguna subida correcta</value>
+  </data>
+  <data name="History_Account" xml:space="preserve">
+    <value>cuenta {0}</value>
+  </data>
 </root>
