@@ -151,6 +151,27 @@ static uint64_t GetCachedAppBuildIdHwm(uint32_t accountId, uint32_t appId) {
     return (it != g_cachedAppBuildIdHwm.end()) ? it->second : 0;
 }
 
+// Our own CompleteBatch just published `cn`. Move the repeat-call cache forward so the
+// next GetAppFileChangelist in this Steam session (e.g. the exit sync after another play
+// session) sees "CN unchanged" and returns the empty delta. Without this the cache keeps
+// the CN from the first full manifest, the probe reports our own publish as a remote
+// change, and a full manifest is re-sent -- the stale SHA/timestamp case that makes
+// Steam skip the upload and later raise a conflict. Only moves forward, and only when a
+// manifest was already sent; a newer CN from another machine still invalidates.
+static void NoteOwnPublishedCN(uint32_t accountId, uint32_t appId,
+                               uint64_t cn, uint64_t buildId) {
+    const uint64_t key = MakeAppAccountKey(accountId, appId);
+    std::lock_guard<std::mutex> lock(g_fullManifestSentMutex);
+    if (g_fullManifestSentApps.count(key) == 0) return;
+    auto it = g_cachedCloudCN.find(key);
+    if (it == g_cachedCloudCN.end() || it->second >= cn) return;
+    LOG("[NS-CL] app=%u: repeat-call cache CN %llu -> %llu after own publish",
+        appId, (unsigned long long)it->second, (unsigned long long)cn);
+    it->second = cn;
+    uint64_t& hwm = g_cachedAppBuildIdHwm[key];
+    if (buildId > hwm) hwm = buildId;
+}
+
 // Per-app root tokens (e.g., "%GameInstall%") seen on uploads.
 static std::unordered_map<uint64_t, std::unordered_set<std::string>> g_appRootTokens;
 static std::mutex g_rootTokenMutex;
@@ -2076,6 +2097,10 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
             if (publishState.cn >= publishCN) {
                 LOG("[NS] CompleteBatch(pub): publish aborted for app %u: cloud CN %llu >= batch CN %llu",
                     appId, publishState.cn, publishCN);
+                // Equal CN means an earlier attempt of this same batch already landed.
+                // Greater means another writer: leave the cache so the probe invalidates it.
+                if (publishState.cn == publishCN)
+                    NoteOwnPublishedCN(accountId, appId, publishCN, publishBuildId);
                 publishSucceeded = true;
                 break;
             }
@@ -2164,6 +2189,7 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
                                                 /*lockOnly=*/false)) {
                 LOG("[NS] CompleteBatch(pub): publish %d/%d succeeded for app %u at CN=%llu",
                     attempt, kMaxAttempts, appId, (unsigned long long)publishCN);
+                NoteOwnPublishedCN(accountId, appId, publishCN, publishBuildId);
                 if (!evicted.empty()) {
                     auto m = CloudStorage::LoadLocalManifest(accountId, appId);
                     for (const auto& name : evicted) {
