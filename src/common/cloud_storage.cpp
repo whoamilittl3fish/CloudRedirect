@@ -1,4 +1,6 @@
 #include "cloud_storage.h"
+#include "blob_retention.h"
+#include <atomic>
 #include "app_state.h"
 #include "local_storage.h"
 #include "local_disk_provider.h"
@@ -349,6 +351,17 @@ static std::string ShaToHex(const std::vector<uint8_t>& sha) {
 }
 
 // CAS blob path: "{accountId}/{appId}/blobs/{filename}/{sha1hex}"
+static std::atomic<uint32_t> g_previousVersionsToKeep{2};
+
+void SetPreviousVersionsToKeep(uint32_t n) {
+    // Cap it: every kept version is a full copy of the file in the user's cloud.
+    g_previousVersionsToKeep.store((std::min)(n, 20u));
+}
+
+uint32_t GetPreviousVersionsToKeep() {
+    return g_previousVersionsToKeep.load();
+}
+
 static std::string CloudBlobPathByNameAndSHA(uint32_t accountId, uint32_t appId,
                                              const std::string& filename,
                                              const std::string& shaHex) {
@@ -1348,6 +1361,13 @@ std::vector<uint8_t> RetrieveBlob(uint32_t accountId, uint32_t appId,
 
             // Fast path: use blob index to resolve actual path in one call.
             std::string resolved = ResolveBlobCloudPath(accountId, appId, filename);
+            // The index keeps one path per filename, but the folder can hold previous
+            // versions (kept as history by GC). A sibling with another SHA is the wrong
+            // version: go straight to the canonical path instead of downloading it and
+            // failing the SHA check.
+            if (!resolved.empty() && resolved != canonicalPath &&
+                BlobRetention::BlobFolder(resolved) == BlobRetention::BlobFolder(canonicalPath))
+                resolved = canonicalPath;
             if (!resolved.empty() && g_provider->Download(resolved, data)) {
                 // Verify content SHA matches the manifest-expected hash.
                 std::string actualSha = ShaToHex(FileUtil::SHA1(data.data(), data.size()));
@@ -2070,6 +2090,8 @@ int GarbageCollectBlobs(uint32_t accountId, uint32_t appId) {
     }
 
     std::vector<std::string> orphans;
+    // Unreferenced canonical blobs; the newest few per live file are kept as history.
+    std::vector<BlobRetention::Candidate> unreferencedCanonical;
     // Legacy blobs whose canonical CAS equivalent is missing -- promote these.
     struct PromoteEntry {
         std::string legacyPath;
@@ -2091,7 +2113,7 @@ int GarbageCollectBlobs(uint32_t accountId, uint32_t appId) {
                 bool referenced = keepCanonicalPaths.count(fi.path) != 0 ||
                                   keepLegacySHAs.count(leaf) != 0;
                 if (!referenced) {
-                    orphans.push_back(fi.path);
+                    unreferencedCanonical.push_back({fi.path, fi.modifiedTime});
                 }
                 continue;
             }
@@ -2115,6 +2137,21 @@ int GarbageCollectBlobs(uint32_t accountId, uint32_t appId) {
         } else {
             orphans.push_back(fi.path);
         }
+    }
+
+    // Keep the newest previous versions of files that still exist (save history).
+    {
+        std::unordered_set<std::string> liveFolders;
+        for (const auto& [filename, ref] : filenameToManifestRef)
+            liveFolders.insert(BlobRetention::BlobFolder(ref.canonicalPath));
+        const uint32_t keepPrevious = GetPreviousVersionsToKeep();
+        auto history = BlobRetention::SelectHistoryToKeep(unreferencedCanonical, liveFolders,
+                                                          keepPrevious);
+        for (const auto& c : unreferencedCanonical)
+            if (history.count(c.path) == 0) orphans.push_back(c.path);
+        if (!history.empty())
+            LOG("[GC] app=%u: keeping %zu previous version blob(s) as history (up to %u per file)",
+                appId, history.size(), keepPrevious);
     }
 
     // Promote legacy blobs to canonical CAS paths (with SHA verification).

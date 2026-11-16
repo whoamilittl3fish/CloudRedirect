@@ -84,6 +84,7 @@ set(COMMON_SOURCES
     src/common/sha256_hmac.cpp
     src/common/autocloud_scan.cpp
     src/common/sync_history.cpp
+    src/common/local_snapshot.cpp
     src/common/steam_kv_injector.cpp
     src/common/parental_bypass.cpp
     src/common/metadata_sync.cpp
@@ -263,6 +264,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
             src/common/local_metadata_store.cpp
         src/common/autocloud_scan.cpp
         src/common/sync_history.cpp
+        src/common/local_snapshot.cpp
         src/common/vdf.cpp
             src/platform/win/log.cpp
             src/platform/win/platform_win.cpp
@@ -366,6 +368,7 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
         src/common/sha256_hmac.cpp
         src/common/autocloud_scan.cpp
         src/common/sync_history.cpp
+        src/common/local_snapshot.cpp
         src/common/vdf.cpp
         src/common/miniz.c
         src/common/miniz_tdef.c
@@ -473,6 +476,44 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/autocloud_native_tests.cpp)
 endif()
 
 # Individually-guarded tests, so a partial tests/ tree still builds.
+if(EXISTS ${CMAKE_SOURCE_DIR}/tests/local_snapshot_tests.cpp
+   AND NOT TARGET local_snapshot_tests)
+    add_executable(local_snapshot_tests
+        tests/local_snapshot_tests.cpp
+        src/common/local_snapshot.cpp
+        src/common/json.cpp
+    )
+    target_include_directories(local_snapshot_tests PRIVATE src/common)
+    target_compile_definitions(local_snapshot_tests PRIVATE
+        CR_RELEASE_VERSION="${CR_RELEASE_VERSION}")
+    if(WIN32)
+        target_include_directories(local_snapshot_tests PRIVATE src/platform/win)
+        target_sources(local_snapshot_tests PRIVATE src/platform/win/log.cpp src/platform/win/platform_win.cpp)
+    else()
+        target_include_directories(local_snapshot_tests PRIVATE src/platform/linux)
+        target_sources(local_snapshot_tests PRIVATE src/platform/linux/log.cpp src/platform/linux/platform_linux.cpp)
+    endif()
+    add_test(NAME local_snapshot_tests COMMAND local_snapshot_tests)
+endif()
+
+if(EXISTS ${CMAKE_SOURCE_DIR}/tests/blob_retention_tests.cpp
+   AND NOT TARGET blob_retention_tests)
+    add_executable(blob_retention_tests
+        tests/blob_retention_tests.cpp
+    )
+    target_include_directories(blob_retention_tests PRIVATE src/common)
+    target_compile_definitions(blob_retention_tests PRIVATE
+        CR_RELEASE_VERSION="${CR_RELEASE_VERSION}")
+    if(WIN32)
+        target_include_directories(blob_retention_tests PRIVATE src/platform/win)
+        target_sources(blob_retention_tests PRIVATE src/platform/win/log.cpp src/platform/win/platform_win.cpp)
+    else()
+        target_include_directories(blob_retention_tests PRIVATE src/platform/linux)
+        target_sources(blob_retention_tests PRIVATE src/platform/linux/log.cpp src/platform/linux/platform_linux.cpp)
+    endif()
+    add_test(NAME blob_retention_tests COMMAND blob_retention_tests)
+endif()
+
 if(EXISTS ${CMAKE_SOURCE_DIR}/tests/stats_reset_tests.cpp
    AND NOT TARGET stats_reset_tests)
     add_executable(stats_reset_tests

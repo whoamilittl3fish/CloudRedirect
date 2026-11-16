@@ -2087,4 +2087,13 @@ Se aplica en este PC y en la nube la próxima vez que se inicie Steam. Los logro
   <data name="Stats_PendingResetPlaytime" xml:space="preserve">
     <value>Restablecimiento del tiempo de juego pendiente (reinicia Steam)</value>
   </data>
+  <data name="History_Ev_LocalBackup" xml:space="preserve">
+    <value>Copia de seguridad de {0} archivo(s) locales antes de sincronizar con la nube</value>
+  </data>
+  <data name="History_Ev_LocalBackupFailed" xml:space="preserve">
+    <value>No se pudo hacer copia de las partidas locales antes de sincronizar</value>
+  </data>
+  <data name="History_OpenBackups" xml:space="preserve">
+    <value>Copias locales</value>
+  </data>
 </root>

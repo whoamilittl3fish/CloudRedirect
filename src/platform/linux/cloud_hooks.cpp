@@ -6,6 +6,7 @@
 
 #include "stats_store.h"
 #include "sync_history.h"
+#include "local_snapshot.h"
 #include "stats_handlers.h"
 #include "metadata_sync.h"
 #include "rpc_handlers.h"
@@ -323,6 +324,13 @@ static void EnsureInitialized() {
                     MetadataSync::syncAchievements = cfg["sync_achievements"].boolean();
                 if (cfg["sync_playtime"].type == Json::Type::Bool)
                     MetadataSync::syncPlaytime = cfg["sync_playtime"].boolean();
+                if (cfg["local_backups_kept"].type == Json::Type::Number &&
+                    cfg["local_backups_kept"].integer() >= 0)
+                    LocalSnapshot::SetKeep((uint32_t)cfg["local_backups_kept"].integer());
+                if (cfg["keep_previous_versions"].type == Json::Type::Number &&
+                    cfg["keep_previous_versions"].integer() >= 0)
+                    CloudStorage::SetPreviousVersionsToKeep(
+                        (uint32_t)cfg["keep_previous_versions"].integer());
             }
 
             // Concurrency cap, not a speed knob (see g_uploadInFlightCapBytes).

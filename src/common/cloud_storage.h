@@ -21,6 +21,11 @@ void Init(const std::string& localRoot, std::unique_ptr<ICloudProvider> provider
 void Shutdown();
 bool IsCloudActive();
 
+// How many previous versions of each existing save file GC keeps in the cloud
+// (config "keep_previous_versions", default 2; 0 restores the old delete-all GC).
+void SetPreviousVersionsToKeep(uint32_t n);
+uint32_t GetPreviousVersionsToKeep();
+
 bool StoreBlob(uint32_t accountId, uint32_t appId,
                const std::string& filename,
                const uint8_t* data, size_t len);

@@ -28,11 +28,19 @@ internal static class SyncHistoryReader
     public const string Conflict = "conflict";
     public const string CloudUnreachable = "cloud_unreachable";
     public const string SaveNotSynced = "save_not_synced";
+    public const string LocalBackup = "local_backup";
 
     public static string? GetHistoryDir()
     {
         var steam = SteamDetector.FindSteamPath();
         return steam == null ? null : Path.Combine(steam, "cloud_redirect", "history");
+    }
+
+    /// <summary>Local save snapshots taken before cloud syncs (src/common/local_snapshot.h).</summary>
+    public static string? GetLocalBackupsDir()
+    {
+        var steam = SteamDetector.FindSteamPath();
+        return steam == null ? null : Path.Combine(steam, "cloud_redirect", "local_backups");
     }
 
     /// <summary>All events from every account's current and rotated file, oldest first.

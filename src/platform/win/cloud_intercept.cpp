@@ -4,6 +4,7 @@
 #include "stats_handlers.h"
 #include "stats_store.h"
 #include "sync_history.h"
+#include "local_snapshot.h"
 #include "app_state.h"
 #include "protobuf.h"
 #include "parental_bypass.h"
@@ -4754,6 +4755,13 @@ void Init(const std::string& steamPath, bool cloudSaveOnly, CR_NotifyFn notifyCa
             MetadataSync::syncAchievements = cfg["sync_achievements"].boolean();
         if (cfg["sync_playtime"].type == Json::Type::Bool)
             MetadataSync::syncPlaytime = cfg["sync_playtime"].boolean();
+        if (cfg["local_backups_kept"].type == Json::Type::Number &&
+            cfg["local_backups_kept"].integer() >= 0)
+            LocalSnapshot::SetKeep((uint32_t)cfg["local_backups_kept"].integer());
+        if (cfg["keep_previous_versions"].type == Json::Type::Number &&
+            cfg["keep_previous_versions"].integer() >= 0)
+            CloudStorage::SetPreviousVersionsToKeep(
+                (uint32_t)cfg["keep_previous_versions"].integer());
         // schema_fetch is retired and no longer honored; it stays off regardless of config.
         LOG("[Stats] Sync gates: achievements=%d, playtime=%d, steamTools=%d, stGateOpen=%d",
             MetadataSync::syncAchievements.load() ? 1 : 0,

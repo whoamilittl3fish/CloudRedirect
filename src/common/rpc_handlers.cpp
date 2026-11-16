@@ -20,6 +20,7 @@
 #include "log.h"
 #include "json.h"
 #include "sync_history.h"
+#include "local_snapshot.h"
 #include <unordered_map>
 #include <unordered_set>
 #include <algorithm>
@@ -47,6 +48,8 @@ namespace CloudIntercept {
 
 // Sync history for the companion app (see sync_history.h).
 static uint32_t CountSyncedFiles(const std::vector<std::string>& names);
+static void SnapshotLocalSavesIfNeeded(uint32_t accountId, uint32_t appId,
+                                       const CloudStorage::Manifest& cloudManifest);
 static void RecordHistory(uint32_t accountId, uint32_t appId, const char* kind, bool ok,
                           std::string msg, uint64_t cn = 0, uint32_t files = 0,
                           uint32_t deleted = 0) {
@@ -860,6 +863,9 @@ RpcResult HandleGetChangelist(uint32_t appId, const std::vector<PB::Field>& reqB
                 // First call: full manifest. Use cloud timestamps so subsequent
                 // compares see the same remotetime (avoids false conflicts).
                 responseIsDelta = false;
+
+                // Steam may now overwrite or delete local files: copy them aside first.
+                SnapshotLocalSavesIfNeeded(accountId, appId, cloudManifest);
 
                 for (const auto& [filename, entry] : cloudManifest) {
                     if (IsReservedBlobFilename(filename)) continue;
@@ -2279,6 +2285,72 @@ RpcResult HandleCompleteBatch(uint32_t appId, const std::vector<PB::Field>& reqB
 
     PB::Writer body;
     return body;
+}
+
+// Copies the app's local save files aside before the first full changelist of the
+// session, when serving it could overwrite or delete them (see local_snapshot.h).
+// Runs on Steam's thread, so it is bounded: saves over kMaxSnapshotBytes are skipped.
+static void SnapshotLocalSavesIfNeeded(uint32_t accountId, uint32_t appId,
+                                       const CloudStorage::Manifest& cloudManifest) {
+    if (LocalSnapshot::GetKeep() == 0) return;
+    const std::string steamPath = CloudIntercept::GetSteamPath();
+    if (steamPath.empty()) return;
+    constexpr uint64_t kMaxSnapshotBytes = 512ull * 1024 * 1024;
+
+    std::vector<LocalSnapshot::LocalFile> local;
+    uint64_t totalBytes = 0;
+    auto scan = AutoCloudScan::GetFileList(steamPath, accountId, appId);
+    for (const auto& fe : scan.files) {
+        local.push_back({fe.relativePath, fe.fullPath, fe.sha});
+        totalBytes += fe.size;
+    }
+    if (!scan.hasRules) {
+        // Steam Cloud API games keep their files in userdata/<acct>/<app>/remote.
+        std::error_code ec;
+        const std::filesystem::path remote = FileUtil::Utf8ToPath(steamPath) / "userdata" /
+            std::to_string(accountId) / std::to_string(appId) / "remote";
+        for (std::filesystem::recursive_directory_iterator it(remote, ec), end;
+             !ec && it != end; it.increment(ec)) {
+            std::error_code fec;
+            if (!it->is_regular_file(fec) || fec) continue;
+            uint64_t size = it->file_size(fec);
+            if (fec) continue;
+            totalBytes += size;
+            if (totalBytes > kMaxSnapshotBytes) break;
+            std::ifstream in(it->path(), std::ios::binary);
+            std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)),
+                                       std::istreambuf_iterator<char>());
+            std::string rel = FileUtil::PathToUtf8(std::filesystem::relative(it->path(), remote, fec));
+            if (fec || rel.empty()) continue;
+            std::replace(rel.begin(), rel.end(), '\\', '/');
+            local.push_back({rel, FileUtil::PathToUtf8(it->path()),
+                             FileUtil::SHA1(bytes.data(), bytes.size())});
+        }
+    }
+    if (local.empty()) return;
+    if (totalBytes > kMaxSnapshotBytes) {
+        LOG("[Snapshot] app=%u: local saves exceed %llu MB, not snapshotting",
+            appId, (unsigned long long)(kMaxSnapshotBytes >> 20));
+        return;
+    }
+
+    std::unordered_map<std::string, std::vector<uint8_t>> cloudShas;
+    for (const auto& [name, entry] : cloudManifest)
+        if (!IsReservedBlobFilename(name)) cloudShas[name] = entry.sha;
+    if (!LocalSnapshot::CloudWouldChangeLocal(local, cloudShas)) return;
+
+    auto r = LocalSnapshot::Take(steamPath + "cloud_redirect", accountId, appId, local,
+                                 LocalSnapshot::NowStamp());
+    if (r.taken) {
+        LOG("[Snapshot] app=%u: saved %zu local file(s) before cloud sync: %s",
+            appId, r.files, r.dir.c_str());
+        RecordHistory(accountId, appId, SyncHistory::kLocalBackup, true, r.dir, 0,
+                      (uint32_t)r.files);
+    } else if (!r.error.empty()) {
+        LOG("[Snapshot] app=%u: snapshot failed: %s", appId, r.error.c_str());
+        RecordHistory(accountId, appId, SyncHistory::kLocalBackup, false,
+                      "could not back up local saves: " + r.error);
+    }
 }
 
 static uint32_t CountSyncedFiles(const std::vector<std::string>& names) {

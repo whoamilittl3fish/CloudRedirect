@@ -2113,6 +2113,15 @@
   <data name="Stats_PendingResetPlaytime" xml:space="preserve">
     <value>等待重置游戏时间（重启 Steam）</value>
   </data>
+  <data name="History_Ev_LocalBackup" xml:space="preserve">
+    <value>云同步前已备份 {0} 个本地文件</value>
+  </data>
+  <data name="History_Ev_LocalBackupFailed" xml:space="preserve">
+    <value>云同步前无法备份本地存档</value>
+  </data>
+  <data name="History_OpenBackups" xml:space="preserve">
+    <value>本地备份</value>
+  </data>
 </root>
 
 

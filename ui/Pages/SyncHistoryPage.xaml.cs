@@ -96,9 +96,14 @@ public partial class SyncHistoryPage : Page
 
     private async void Refresh_Click(object sender, RoutedEventArgs e) => await LoadAsync();
 
-    private void OpenFolder_Click(object sender, RoutedEventArgs e)
+    private void OpenBackups_Click(object sender, RoutedEventArgs e) =>
+        OpenDir(SyncHistoryReader.GetLocalBackupsDir());
+
+    private void OpenFolder_Click(object sender, RoutedEventArgs e) =>
+        OpenDir(SyncHistoryReader.GetHistoryDir());
+
+    private static void OpenDir(string? dir)
     {
-        var dir = SyncHistoryReader.GetHistoryDir();
         if (dir == null) return;
         try
         {
@@ -126,6 +131,9 @@ public partial class SyncHistoryPage : Page
             SyncHistoryReader.Conflict => S.Get("History_Ev_Conflict"),
             SyncHistoryReader.CloudUnreachable => S.Get("History_Ev_CloudUnreachable"),
             SyncHistoryReader.SaveNotSynced => S.Get("History_Ev_SaveNotSynced"),
+            SyncHistoryReader.LocalBackup => e.Ok
+                ? S.Format("History_Ev_LocalBackup", e.Files)
+                : S.Get("History_Ev_LocalBackupFailed"),
             _ => e.Kind,
         };
         return string.IsNullOrEmpty(e.Message) ? text : $"{text}: {e.Message}";
@@ -138,6 +146,9 @@ public partial class SyncHistoryPage : Page
         SyncHistoryReader.CloudUnreachable => (SymbolRegular.CloudOff24, WarnBrush),
         SyncHistoryReader.SaveNotSynced => (SymbolRegular.Warning24, WarnBrush),
         SyncHistoryReader.Conflict => (SymbolRegular.Warning24, WarnBrush),
+        SyncHistoryReader.LocalBackup => e.Ok
+            ? (SymbolRegular.ShieldCheckmark24, GoodBrush)
+            : (SymbolRegular.ShieldDismiss24, BadBrush),
         _ => (SymbolRegular.ErrorCircle24, WarnBrush),
     };
 
@@ -166,7 +177,8 @@ public partial class SyncHistoryPage : Page
         {
             AccountId = accountId;
             AppId = appId;
-            _last = events[^1];
+            // A backup is a side note: the status reflects the latest sync event.
+            _last = events.LastOrDefault(e => e.Kind != SyncHistoryReader.LocalBackup) ?? events[^1];
             _lastUpload = events.LastOrDefault(e => e.Kind == SyncHistoryReader.Upload);
             Recent = events.AsEnumerable().Reverse().Take(RecentPerApp).Select(e => new EventRow(e)).ToList();
             var look = Look(_last);

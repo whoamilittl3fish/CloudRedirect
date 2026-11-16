@@ -12,6 +12,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0"
                            Text="{res:Loc Nav_SyncHistory}"
@@ -25,6 +26,13 @@
                            Margin="0,0,8,0"
                            Click="OpenFolder_Click" />
                 <ui:Button Grid.Column="2"
+                           VerticalAlignment="Center"
+                           Appearance="Secondary"
+                           Icon="{ui:SymbolIcon ShieldCheckmark24}"
+                           Content="{res:Loc History_OpenBackups}"
+                           Margin="0,0,8,0"
+                           Click="OpenBackups_Click" />
+                <ui:Button Grid.Column="3"
                            VerticalAlignment="Center"
                            Appearance="Secondary"
                            Icon="{ui:SymbolIcon ArrowSync24}"

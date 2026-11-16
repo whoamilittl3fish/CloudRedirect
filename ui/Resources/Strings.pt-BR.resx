@@ -2092,4 +2092,13 @@ Aplicado neste PC e na nuvem na próxima vez que o Steam iniciar. Conquistas e e
   <data name="Stats_PendingResetPlaytime" xml:space="preserve">
     <value>Redefinição do tempo de jogo pendente (reinicie o Steam)</value>
   </data>
+  <data name="History_Ev_LocalBackup" xml:space="preserve">
+    <value>Backup de {0} arquivo(s) locais antes da sincronização com a nuvem</value>
+  </data>
+  <data name="History_Ev_LocalBackupFailed" xml:space="preserve">
+    <value>Não foi possível fazer backup dos saves locais antes da sincronização</value>
+  </data>
+  <data name="History_OpenBackups" xml:space="preserve">
+    <value>Backups locais</value>
+  </data>
 </root>

@@ -2140,4 +2140,13 @@ Applied on this PC and in the cloud the next time Steam starts. Achievements and
   <data name="Stats_PendingResetPlaytime" xml:space="preserve">
     <value>Playtime reset pending (restart Steam)</value>
   </data>
+  <data name="History_Ev_LocalBackup" xml:space="preserve">
+    <value>Backed up {0} local file(s) before the cloud sync</value>
+  </data>
+  <data name="History_Ev_LocalBackupFailed" xml:space="preserve">
+    <value>Could not back up local saves before the cloud sync</value>
+  </data>
+  <data name="History_OpenBackups" xml:space="preserve">
+    <value>Local backups</value>
+  </data>
 </root>
