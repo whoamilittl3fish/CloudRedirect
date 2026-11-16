@@ -481,6 +481,9 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/sync_history_tests.cpp
         src/common/json.cpp
     )
     target_include_directories(sync_history_tests PRIVATE src/common)
+    # Windows log.cpp prints the build version; same as pending_ops_journal_tests.
+    target_compile_definitions(sync_history_tests PRIVATE
+        CR_RELEASE_VERSION="${CR_RELEASE_VERSION}")
     if(WIN32)
         target_include_directories(sync_history_tests PRIVATE src/platform/win)
         target_sources(sync_history_tests PRIVATE src/platform/win/log.cpp src/platform/win/platform_win.cpp)
