@@ -63,6 +63,73 @@ internal sealed class CloudProviderClient
 
     public record CloudStatsEntry(string AccountId, string AppId, string Content);
 
+    /// <summary>One file of the current cloud state (Time: the save's own timestamp).</summary>
+    public record CloudVersionFile(string Name, string Sha, long Size, long Time);
+
+    /// <summary>One stored blob: a version of file Name with content Sha.</summary>
+    public record CloudBlobVersion(string Name, string Sha, long Size, long Modified);
+
+    public record ListVersionsResult(bool Success, IReadOnlyList<CloudVersionFile> Current,
+                                     IReadOnlyList<CloudBlobVersion> Blobs, bool Complete, string? Error);
+
+    public record VersionDownload(string Name, string Sha, string OutPath);
+
+    public record DownloadVersionsResult(bool Success, int Written, string? Error);
+
+    /// <summary>Versions of one app's saves. Success=false with Error=null: no cloud configured.</summary>
+    public async Task<ListVersionsResult> ListVersionsAsync(string accountId, string appId, CancellationToken cancel = default)
+    {
+        var provider = UiCloudProviderFactory.TryResolve(SteamDetector.ReadConfig(), _log);
+        if (provider == null)
+            return new ListVersionsResult(false, Array.Empty<CloudVersionFile>(), Array.Empty<CloudBlobVersion>(), true, null);
+        try
+        {
+            return await provider.ListVersionsAsync(accountId, appId, cancel);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            return new ListVersionsResult(false, Array.Empty<CloudVersionFile>(), Array.Empty<CloudBlobVersion>(), false, ex.Message);
+        }
+    }
+
+    public async Task<DownloadVersionsResult> DownloadVersionsAsync(string accountId, string appId,
+        IReadOnlyList<VersionDownload> items, CancellationToken cancel = default)
+    {
+        var provider = UiCloudProviderFactory.TryResolve(SteamDetector.ReadConfig(), _log);
+        if (provider == null) return new DownloadVersionsResult(false, 0, "No cloud provider configured");
+        try
+        {
+            return await provider.DownloadVersionsAsync(accountId, appId, items, cancel);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception ex)
+        {
+            return new DownloadVersionsResult(false, 0, ex.Message);
+        }
+    }
+
+    /// <summary>Parses the JSON printed by the CLI's list-versions command.</summary>
+    internal static ListVersionsResult ParseListVersions(string json)
+    {
+        using var doc = System.Text.Json.JsonDocument.Parse(json);
+        var root = doc.RootElement;
+        string? error = root.TryGetProperty("error", out var e) ? e.GetString() : null;
+        bool success = root.TryGetProperty("success", out var s) && s.GetBoolean();
+        bool complete = root.TryGetProperty("complete", out var c) && c.GetBoolean();
+        var current = new List<CloudVersionFile>();
+        if (root.TryGetProperty("current", out var cur) && cur.ValueKind == System.Text.Json.JsonValueKind.Array)
+            foreach (var f in cur.EnumerateArray())
+                current.Add(new CloudVersionFile(f.GetProperty("name").GetString() ?? "", f.GetProperty("sha").GetString() ?? "",
+                    f.GetProperty("size").GetInt64(), f.GetProperty("time").GetInt64()));
+        var blobs = new List<CloudBlobVersion>();
+        if (root.TryGetProperty("blobs", out var bl) && bl.ValueKind == System.Text.Json.JsonValueKind.Array)
+            foreach (var b in bl.EnumerateArray())
+                blobs.Add(new CloudBlobVersion(b.GetProperty("name").GetString() ?? "", b.GetProperty("sha").GetString() ?? "",
+                    b.GetProperty("size").GetInt64(), b.GetProperty("modified").GetInt64()));
+        return new ListVersionsResult(success, current, blobs, complete, error);
+    }
+
     public record ListAllStatsResult(IReadOnlyList<CloudStatsEntry> Entries, string? Error);
 
     /// <summary>Enumerate every app's stats.json in the cloud. Returns empty when no cloud is configured.</summary>

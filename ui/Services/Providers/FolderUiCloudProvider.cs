@@ -218,4 +218,81 @@ internal sealed class FolderUiCloudProvider : IUiCloudProvider
         string? err = failed > 0 ? $"{failed} of {blobFilenames.Count} file(s) could not be deleted." : null;
         return Task.FromResult(new CloudProviderClient.DeleteBlobsResult(deleted, failed, failedNames, err));
     }
+
+    public Task<CloudProviderClient.ListVersionsResult> ListVersionsAsync(
+        string accountId, string appId, CancellationToken cancel)
+    {
+        var appDir = Path.Combine(_syncPath, accountId, appId);
+        var current = new List<CloudProviderClient.CloudVersionFile>();
+        var blobs = new List<CloudProviderClient.CloudBlobVersion>();
+        try
+        {
+            var statePath = Path.Combine(appDir, "state.cloudredirect");
+            if (File.Exists(statePath))
+            {
+                using var doc = JsonDocument.Parse(File.ReadAllText(statePath));
+                if (doc.RootElement.TryGetProperty("files", out var files) && files.ValueKind == JsonValueKind.Object)
+                {
+                    foreach (var f in files.EnumerateObject())
+                    {
+                        var v = f.Value;
+                        if (v.TryGetProperty("ps", out var ps) && ps.GetDouble() != 0) continue; // deleted/forgotten
+                        current.Add(new CloudProviderClient.CloudVersionFile(f.Name,
+                            v.TryGetProperty("sha", out var sha) ? sha.GetString() ?? "" : "",
+                            v.TryGetProperty("size", out var size) ? (long)size.GetDouble() : 0,
+                            v.TryGetProperty("ts", out var ts) ? (long)ts.GetDouble() : 0));
+                    }
+                }
+            }
+
+            var blobsDir = Path.Combine(appDir, "blobs");
+            if (Directory.Exists(blobsDir))
+            {
+                foreach (var file in Directory.EnumerateFiles(blobsDir, "*", SearchOption.AllDirectories))
+                {
+                    var sha = Path.GetFileName(file);
+                    if (sha.Length != 40 || !sha.All(ch => ch is >= '0' and <= '9' or >= 'a' and <= 'f')) continue;
+                    var nameDir = Path.GetDirectoryName(file)!;
+                    if (nameDir.Length <= blobsDir.Length) continue; // legacy flat blob
+                    var name = Path.GetRelativePath(blobsDir, nameDir).Replace(Path.DirectorySeparatorChar, '/');
+                    var info = new FileInfo(file);
+                    blobs.Add(new CloudProviderClient.CloudBlobVersion(name, sha, info.Length,
+                        new DateTimeOffset(info.LastWriteTimeUtc).ToUnixTimeSeconds()));
+                }
+            }
+            return Task.FromResult(new CloudProviderClient.ListVersionsResult(true, current, blobs, true, null));
+        }
+        catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException)
+        {
+            return Task.FromResult(new CloudProviderClient.ListVersionsResult(false, current, blobs, false, ex.Message));
+        }
+    }
+
+    public Task<CloudProviderClient.DownloadVersionsResult> DownloadVersionsAsync(
+        string accountId, string appId,
+        IReadOnlyList<CloudProviderClient.VersionDownload> items, CancellationToken cancel)
+    {
+        var blobsDir = Path.GetFullPath(Path.Combine(_syncPath, accountId, appId, "blobs")) + Path.DirectorySeparatorChar;
+        int written = 0;
+        foreach (var item in items)
+        {
+            var src = Path.GetFullPath(Path.Combine(blobsDir, item.Name.Replace('/', Path.DirectorySeparatorChar), item.Sha));
+            if (!src.StartsWith(blobsDir, StringComparison.OrdinalIgnoreCase))
+                return Task.FromResult(new CloudProviderClient.DownloadVersionsResult(false, written, $"{item.Name}: invalid name"));
+            try
+            {
+                var bytes = File.ReadAllBytes(src);
+                if (Convert.ToHexString(System.Security.Cryptography.SHA1.HashData(bytes)).ToLowerInvariant() != item.Sha)
+                    return Task.FromResult(new CloudProviderClient.DownloadVersionsResult(false, written, $"{item.Name}: content does not match its SHA1"));
+                Directory.CreateDirectory(Path.GetDirectoryName(item.OutPath)!);
+                File.WriteAllBytes(item.OutPath, bytes);
+                written++;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return Task.FromResult(new CloudProviderClient.DownloadVersionsResult(false, written, $"{item.Name}: {ex.Message}"));
+            }
+        }
+        return Task.FromResult(new CloudProviderClient.DownloadVersionsResult(true, written, null));
+    }
 }

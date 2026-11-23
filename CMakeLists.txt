@@ -496,6 +496,19 @@ if(EXISTS ${CMAKE_SOURCE_DIR}/tests/local_snapshot_tests.cpp
     add_test(NAME local_snapshot_tests COMMAND local_snapshot_tests)
 endif()
 
+if(EXISTS ${CMAKE_SOURCE_DIR}/tests/ticket_link_tests.cpp
+   AND NOT TARGET ticket_link_tests)
+    add_executable(ticket_link_tests tests/ticket_link_tests.cpp)
+    target_include_directories(ticket_link_tests PRIVATE src/common)
+    if(WIN32)
+        target_include_directories(ticket_link_tests PRIVATE src/platform/win)
+        target_link_libraries(ticket_link_tests PRIVATE Shell32 Ole32)
+    else()
+        target_include_directories(ticket_link_tests PRIVATE src/platform/linux)
+    endif()
+    add_test(NAME ticket_link_tests COMMAND ticket_link_tests)
+endif()
+
 if(EXISTS ${CMAKE_SOURCE_DIR}/tests/blob_retention_tests.cpp
    AND NOT TARGET blob_retention_tests)
     add_executable(blob_retention_tests

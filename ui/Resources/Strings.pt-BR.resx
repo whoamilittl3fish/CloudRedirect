@@ -2143,4 +2143,56 @@ Feche o jogo antes. Os arquivos atuais diferentes e os mais novos que o backup n
   <data name="History_DeleteBackupFailed" xml:space="preserve">
     <value>Falha ao excluir: {0}</value>
   </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="History_VersionsButton" xml:space="preserve">
+    <value>Versões</value>
+  </data>
+  <data name="History_VersionsTitle" xml:space="preserve">
+    <value>Versões dos saves</value>
+  </data>
+  <data name="History_VersionsIntro" xml:space="preserve">
+    <value>Escolha a versão de {0} que será colocada na pasta de saves. Os arquivos substituídos são guardados antes como backup local. Feche o Steam antes de restaurar.</value>
+  </data>
+  <data name="History_VersionsRestore" xml:space="preserve">
+    <value>Restaurar</value>
+  </data>
+  <data name="History_VersionsNone" xml:space="preserve">
+    <value>Nenhuma versão armazenada foi encontrada para este jogo.</value>
+  </data>
+  <data name="History_VersionsCloudError" xml:space="preserve">
+    <value>As versões na nuvem não estão disponíveis: {0}</value>
+  </data>
+  <data name="History_Ver_CloudCurrent" xml:space="preserve">
+    <value>Nuvem · atual</value>
+  </data>
+  <data name="History_Ver_CloudEarlier" xml:space="preserve">
+    <value>Nuvem · anterior</value>
+  </data>
+  <data name="History_Ver_Local" xml:space="preserve">
+    <value>Backup local</value>
+  </data>
+  <data name="History_Ver_OtherFolder" xml:space="preserve">
+    <value>Outra pasta de saves</value>
+  </data>
+  <data name="History_Ver_Line" xml:space="preserve">
+    <value>{0} · {1} · {2} arquivos · {3}</value>
+  </data>
+  <data name="History_Ver_Changed" xml:space="preserve">
+    <value>{0} de {1} arquivos diferem dos atuais</value>
+  </data>
+  <data name="History_VersionsSteamRunning" xml:space="preserve">
+    <value>Feche o Steam completamente antes de restaurar uma versão.</value>
+  </data>
+  <data name="History_VersionsNoFolder" xml:space="preserve">
+    <value>Ainda não se sabe onde {0} é salvo neste PC. Abra o jogo uma vez com o CloudRedirect instalado e tente novamente.</value>
+  </data>
+  <data name="History_VersionsSame" xml:space="preserve">
+    <value>A pasta de saves já corresponde a esta versão.</value>
+  </data>
+  <data name="History_VersionsBackedUp" xml:space="preserve">
+    <value>Os arquivos substituídos foram guardados em:
+{0}</value>
+  </data>
 </root>

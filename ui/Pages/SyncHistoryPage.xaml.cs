@@ -142,6 +142,113 @@ public partial class SyncHistoryPage : Page
             await DeleteAsync(app, app.RelinkBackup);
     }
 
+    private async void Versions_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: AppHistory app } button) return;
+        var title = S.Get("History_VersionsTitle");
+        SaveVersions.Listing listing;
+        button.IsEnabled = false;
+        try
+        {
+            listing = await SaveVersions.LoadAsync(app.AccountId, app.AppId);
+        }
+        catch (Exception ex)
+        {
+            await Dialog.ShowErrorAsync(title, S.Format("History_RestoreFailed", ex.Message));
+            return;
+        }
+        finally
+        {
+            button.IsEnabled = true;
+        }
+
+        var panel = new System.Windows.Controls.StackPanel { MinWidth = 520 };
+        panel.Children.Add(new System.Windows.Controls.TextBlock
+        {
+            Text = S.Format("History_VersionsIntro", app.DisplayName),
+            TextWrapping = TextWrapping.Wrap,
+            Margin = new Thickness(0, 0, 0, 8),
+        });
+        if (listing.CloudError != null)
+            panel.Children.Add(new System.Windows.Controls.TextBlock
+            {
+                Text = S.Format("History_VersionsCloudError", listing.CloudError),
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = WarnBrush,
+                Margin = new Thickness(0, 0, 0, 8),
+            });
+        if (listing.Versions.Count == 0)
+        {
+            await Dialog.ShowInfoAsync(title, S.Get("History_VersionsNone") +
+                (listing.CloudError != null ? "
+
+" + S.Format("History_VersionsCloudError", listing.CloudError) : ""));
+            return;
+        }
+        var list = new System.Windows.Controls.ListBox { MaxHeight = 320 };
+        foreach (var v in listing.Versions)
+            list.Items.Add(new System.Windows.Controls.ListBoxItem { Content = DescribeVersion(v), Tag = v });
+        list.SelectedIndex = 0;
+        panel.Children.Add(list);
+
+        if (!await Dialog.ConfirmAsync(title, panel, S.Get("History_VersionsRestore"))) return;
+        if (list.SelectedItem is not System.Windows.Controls.ListBoxItem { Tag: SaveVersions.Version chosen }) return;
+
+        try
+        {
+            string msg;
+            if (chosen.Snapshot != null)
+            {
+                if (SaveVersions.IsSteamRunning())
+                {
+                    await Dialog.ShowWarningAsync(title, S.Get("History_VersionsSteamRunning"));
+                    return;
+                }
+                var snap = chosen.Snapshot;
+                var r = await Task.Run(() => LocalBackupStore.Restore(snap));
+                msg = S.Format("History_RestoreDone", r.Restored);
+                if (r.MovedAside > 0) msg += "\n\n" + S.Format("History_RestoreMovedAside", r.MovedAside, r.ReplacedDir);
+            }
+            else
+            {
+                var r = await SaveVersions.RestoreCloudAsync(app.AccountId, app.AppId, chosen);
+                if (r.Restored == 0)
+                {
+                    await Dialog.ShowInfoAsync(title, S.Get("History_VersionsSame"));
+                    return;
+                }
+                msg = S.Format("History_RestoreDone", r.Restored);
+                if (r.BackupDir.Length > 0) msg += "\n\n" + S.Format("History_VersionsBackedUp", r.BackupDir);
+            }
+            msg += "\n\n" + S.Get("History_RestoreKeepLocal");
+            await Dialog.ShowInfoAsync(title, msg);
+        }
+        catch (Exception ex)
+        {
+            await Dialog.ShowErrorAsync(title, S.Format("History_RestoreFailed", ex.Message));
+        }
+        await LoadAsync();
+    }
+
+    private static string DescribeVersion(SaveVersions.Version v)
+    {
+        var kind = v.Kind switch
+        {
+            SaveVersions.Kind.CloudCurrent => S.Get("History_Ver_CloudCurrent"),
+            SaveVersions.Kind.CloudEarlier => S.Get("History_Ver_CloudEarlier"),
+            SaveVersions.Kind.LocalBackup => S.Get("History_Ver_Local"),
+            _ => S.Get("History_Ver_OtherFolder"),
+        };
+        var line = S.Format("History_Ver_Line", kind, FormatTime(v.Time), v.Files.Count, FormatBytes(v.Bytes));
+        if (v.Kind == SaveVersions.Kind.CloudEarlier)
+            line += " · " + S.Format("History_Ver_Changed", v.Changed, v.Files.Count);
+        return line;
+    }
+
+    private static string FormatBytes(long n) =>
+        n >= 1 << 20 ? $"{n / (double)(1 << 20):0.0} MB" :
+        n >= 1 << 10 ? $"{n / 1024.0:0.0} KB" : $"{n} B";
+
     private async Task DeleteAsync(AppHistory app, LocalBackupStore.Snapshot snap)
     {
         var title = S.Get("History_DeleteBackupTitle");

@@ -117,11 +117,6 @@ bool IsExpired(const fs::path& dir, uint32_t maxAgeDays) {
     return age > std::chrono::hours(24) * (int64_t)maxAgeDays;
 }
 
-bool MarkedDeleteAfterSync(const fs::path& dir) {
-    Json::Value meta = Json::Parse(ReadText(dir / ".snapshot.json"));
-    return meta["deleteAfterSync"].type == Json::Type::Bool && meta["deleteAfterSync"].boolean();
-}
-
 bool IsRedundant(const fs::path& dir,
                  const std::unordered_map<std::string, std::vector<uint8_t>>& cloudShas) {
     Json::Value meta = Json::Parse(ReadText(dir / ".snapshot.json"));
@@ -145,9 +140,8 @@ size_t PruneRedundantAndExpired(const std::string& cloudRoot, uint32_t accountId
                                 std::to_string(accountId) / std::to_string(appId);
         const uint32_t maxAge = GetMaxAgeDays();
         for (const auto& dir : ListSnapshots(appDir)) {
-            const bool relinkDone = IsRelinkBackupDir(FileUtil::PathToUtf8(dir.filename())) &&
-                                    MarkedDeleteAfterSync(dir);
-            if (relinkDone || IsRedundant(dir, cloudShas) || IsExpired(dir, maxAge)) {
+            const bool relink = IsRelinkBackupDir(FileUtil::PathToUtf8(dir.filename()));
+            if ((!relink && IsRedundant(dir, cloudShas)) || IsExpired(dir, maxAge)) {
                 std::error_code ec;
                 fs::remove_all(dir, ec);
                 if (!ec) ++removed;
@@ -279,8 +273,7 @@ Result Take(const std::string& cloudRoot, uint32_t accountId, uint32_t appId,
 }
 
 Result TakeRelinkBackup(const std::string& cloudRoot, uint32_t accountId, uint32_t appId,
-                        const std::vector<LocalFile>& files, const std::string& stamp,
-                        bool deleteAfterSync) {
+                        const std::vector<LocalFile>& files, const std::string& stamp) {
     Result r;
     if (files.empty() || cloudRoot.empty() || accountId == 0 || appId == 0) {
         r.error = "nothing to back up";
@@ -291,7 +284,6 @@ Result TakeRelinkBackup(const std::string& cloudRoot, uint32_t accountId, uint32
         Json::Value root = Json::Object();
         root.objVal["files"] = FilesJson(files);
         root.objVal["relink"] = Bool(true);
-        root.objVal["deleteAfterSync"] = Bool(deleteAfterSync);
         WriteSnapshot(AppBackupDir(cloudRoot, accountId, appId), stamp + "-relink", files,
                       Json::Stringify(root), r);
     } catch (const std::exception& e) {

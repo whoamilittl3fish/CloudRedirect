@@ -77,6 +77,14 @@ inline std::string ExpandAutoCloudPathTokens(std::string path, uint32_t accountI
     return path;
 }
 
+// Two save folders of one game (TicketLink): the larger one is only kept
+// automatically when the other holds no save data or at most a tenth of it, so a
+// fresh near-empty save never wins and two real saves are never guessed between.
+inline bool IsClearSaveFolderWinner(uint64_t winnerBytes, uint64_t loserBytes) {
+    if (loserBytes == 0) return true;
+    return winnerBytes / 10 >= loserBytes;
+}
+
 inline bool IsSafeRelativePath(const std::string& path) {
     if (path.empty()) return true;
     if (path.find('\0') != std::string::npos) return false;

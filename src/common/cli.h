@@ -32,6 +32,15 @@ std::string CmdListBlobs(const std::string& provider, const std::string& account
 std::string CmdDownloadBlob(const std::string& provider, const std::string& accountId,
                             const std::string& appId, const std::string& blobName);
 std::string CmdListAllStats(const std::string& provider);
+// Every stored version of an app's save files: the current cloud state plus each
+// blobs/<name>/<sha> with its upload time (for the app's Versions picker).
+std::string CmdListVersions(const std::string& provider, const std::string& accountId,
+                            const std::string& appId);
+// Downloads blobs/<name>/<sha> for each {"name","sha","out"} in the JSON request
+// file, verifies the SHA1 and writes the bytes to "out". Nothing is written for an
+// item whose content does not match.
+std::string CmdDownloadVersions(const std::string& provider, const std::string& accountId,
+                                const std::string& appId, const std::string& requestPath);
 std::string CmdDeleteBlobs(const std::string& provider, const std::string& accountId, const std::string& appId,
                            const std::vector<std::string>& blobNames);
 std::string CmdSyncRemoteApp(const std::string& provider, const std::string& accountId, const std::string& appId,

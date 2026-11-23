@@ -86,6 +86,19 @@ public static class Dialog
         return await box.ShowDialogAsync() == MessageBoxResult.Primary;
     }
 
+    /// <summary>Custom content with a primary button labelled primaryText; true when it was pressed.</summary>
+    public static async Task<bool> ConfirmAsync(string title, UIElement content, string primaryText)
+    {
+        var box = new MessageBox
+        {
+            Title = title,
+            Content = content,
+            PrimaryButtonText = primaryText,
+            CloseButtonText = S.Get("Dialog_Cancel")
+        };
+        return await box.ShowDialogAsync() == MessageBoxResult.Primary;
+    }
+
     public static async Task<bool> ConfirmDangerAsync(string title, UIElement content)
     {
         var box = new MessageBox

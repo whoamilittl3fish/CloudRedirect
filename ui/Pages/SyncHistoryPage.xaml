@@ -98,6 +98,13 @@
                                         <TextBlock Text="{Binding LastUploadLine}"
                                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                    FontSize="12" />
+                                        <ui:Button Content="{res:Loc History_VersionsButton}"
+                                                   Appearance="Secondary"
+                                                   Icon="{ui:SymbolIcon History24}"
+                                                   Tag="{Binding}"
+                                                   Click="Versions_Click"
+                                                   HorizontalAlignment="Left"
+                                                   Margin="0,6,0,0" />
                                         <StackPanel Orientation="Horizontal"
                                                     Visibility="{Binding BackupVisibility}"
                                                     Margin="0,6,0,0">

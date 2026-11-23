@@ -1,6 +1,7 @@
 #include "autocloud_scan.h"
 #include "autocloud_util.h"
 #include "file_util.h"
+#include "json.h"
 #include "local_snapshot.h"
 #include "log.h"
 #include "steam_root_ids.h"
@@ -19,6 +20,7 @@
 #include <algorithm>
 #include <cctype>
 #include <chrono>
+#include <ctime>
 #include <cstring>
 #include <fstream>
 #include <iterator>
@@ -49,6 +51,7 @@ using AutoCloudUtil::FindChild;
 using AutoCloudUtil::GetKnownFolderPathString;
 #endif
 using AutoCloudUtil::IsSafeRelativePath;
+using AutoCloudUtil::IsClearSaveFolderWinner;
 using AutoCloudUtil::IsLinuxOS;
 using AutoCloudUtil::kMaxAppInfoBytes;
 using AutoCloudUtil::kMaxAppInfoStrings;
@@ -799,6 +802,24 @@ static bool ListSaveFolder(const std::filesystem::path& dir, std::vector<SaveFol
     return true;
 }
 
+// Newest modification time among `files`, as local "yyyy-MM-dd HH:mm", or "-".
+static std::string NewestChange(const std::vector<SaveFolderFile>& files) {
+    std::filesystem::file_time_type newest{};
+    bool any = false;
+    for (const auto& f : files) {
+        std::error_code ec;
+        auto t = std::filesystem::last_write_time(f.full, ec);
+        if (!ec && (!any || t > newest)) { newest = t; any = true; }
+    }
+    if (!any) return "-";
+    std::time_t tt = (std::time_t)FileTimeToUnixSeconds(newest);
+    std::tm tm{};
+    localtime_s(&tm, &tt);
+    char buf[32];
+    std::strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M", &tm);
+    return buf;
+}
+
 // "<dir>.cr-old-<stamp>": unique, so a leftover from an interrupted run never blocks.
 static std::wstring AsideName(const std::filesystem::path& dir) {
     const std::string stamp = LocalSnapshot::NowStamp();
@@ -842,6 +863,18 @@ static bool ResolveTicketOwnerFolder(const std::string& steamPath, uint32_t appI
                               std::to_string(owner) + " vs " + std::to_string(realBytes) +
                               " bytes in " + realUtf8;
 
+    // Size only stands in for progress when the gap is obvious, typically a fresh
+    // near-empty save the game wrote before the junction existed. Anything closer
+    // is left for the user to decide (app Versions, or SaveLinkAll.ps1 -Keep).
+    const uint64_t winnerBytes = ownerWins ? ownerBytes : realBytes;
+    const uint64_t loserBytes = ownerWins ? realBytes : ownerBytes;
+    if (!IsClearSaveFolderWinner(winnerBytes, loserBytes)) {
+        failure = "both folders hold real saves (" + sizes + ", newest change " +
+                  NewestChange(ownerFiles) + " vs " + NewestChange(realFiles) +
+                  "); choose which to keep with SaveLinkAll.ps1 -Keep Real or -Keep Donor";
+        return false;
+    }
+
     // 1. Back up the losing copy. Its recorded paths go through the owner folder or
     //    the real folder, which both lead to the kept saves afterwards, so the app's
     //    Restore puts it back where the game reads.
@@ -863,10 +896,8 @@ static bool ResolveTicketOwnerFolder(const std::string& steamPath, uint32_t appI
         }
         const std::string cloudRoot =
             FileUtil::PathToUtf8(FileUtil::Utf8ToPath(steamPath) / "cloud_redirect");
-        // The real folder's content is what the cloud holds, and stays there as a
-        // previous version after the next upload; the owner copy was never synced.
         auto r = LocalSnapshot::TakeRelinkBackup(cloudRoot, accountId, appId, files,
-                                                 LocalSnapshot::NowStamp(), /*deleteAfterSync=*/ownerWins);
+                                                 LocalSnapshot::NowStamp());
         if (!r.taken) {
             failure = "backup failed (" + r.error + ")";
             return false;
@@ -912,8 +943,7 @@ static bool ResolveTicketOwnerFolder(const std::string& steamPath, uint32_t appI
         historyMsg = "kept the synced saves in " + realUtf8 + " (" + sizes + ")";
     }
     if (!backupDir.empty())
-        historyMsg += "; the other copy is backed up in " + backupDir +
-                      (ownerWins ? " until the next successful sync" : "");
+        historyMsg += "; the other copy is backed up in " + backupDir;
     return true;
 }
 
@@ -1032,6 +1062,44 @@ static void MaybeLinkTicketOwnerSaveDir(const std::string& steamPath, uint32_t a
 }
 #endif  // _WIN32
 
+// Records which local folder each cloud path prefix of this app maps to, for the
+// companion app's Versions restore:
+//   <steam>/cloud_redirect/save_roots/<accountId>/<appId>.json
+//   {"roots":[{"cloud":"<cloud prefix, '' for the whole namespace>","local":"<folder>"}]}
+// A cloud file "<cloud>/<rest>" lives at "<local>/<rest>". Rewritten only on change.
+static void WriteSaveRootsMap(const std::string& steamPath, uint32_t accountId, uint32_t appId,
+                              std::vector<std::pair<std::string, std::string>> roots) {
+    if (roots.empty() || accountId == 0) return;
+    std::sort(roots.begin(), roots.end());
+    roots.erase(std::unique(roots.begin(), roots.end()), roots.end());
+    Json::Value arr = Json::Array();
+    for (const auto& [cloud, local] : roots) {
+        Json::Value o = Json::Object();
+        o.objVal["cloud"] = Json::String(cloud);
+        o.objVal["local"] = Json::String(local);
+        arr.arrVal.push_back(std::move(o));
+    }
+    Json::Value root = Json::Object();
+    root.objVal["roots"] = std::move(arr);
+    const std::string text = Json::Stringify(root);
+
+    std::error_code ec;
+    const std::filesystem::path dir = FileUtil::Utf8ToPath(steamPath) / "cloud_redirect" /
+                                      "save_roots" / std::to_string(accountId);
+    const std::filesystem::path file = dir / (std::to_string(appId) + ".json");
+    {
+        std::ifstream in(file, std::ios::binary);
+        if (in) {
+            std::string old((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+            Json::Value prev = Json::Parse(old);
+            if (Json::DeepEqual(prev, root)) return;
+        }
+    }
+    std::filesystem::create_directories(dir, ec);
+    std::ofstream out(file, std::ios::binary | std::ios::trunc);
+    out << text;
+}
+
 } // anonymous namespace
 
 // Public API
@@ -1074,6 +1142,8 @@ ScanResult GetFileList(const std::string& steamPath,
             i, r.root.c_str(), r.cloudRoot.c_str(), r.path.c_str(), r.resolvedPath.c_str(),
             r.pattern.c_str(), r.recursive ? 1u : 0u, r.platforms, r.siblings.size());
     }
+
+    std::vector<std::pair<std::string, std::string>> saveRoots;  // cloud prefix -> local folder
 
     std::filesystem::path appUserdataDir = FileUtil::Utf8ToPath(steamPath) / "userdata" /
         std::to_string(accountId) / std::to_string(appId);
@@ -1394,6 +1464,7 @@ ScanResult GetFileList(const std::string& steamPath,
                                                                 : normalizedCloudPath + "/",
                                     scanRoot);
 #endif
+        saveRoots.emplace_back(normalizedCloudPath, FileUtil::PathToUtf8(scanRoot));
 
         std::error_code scanRootEc;
         if (!std::filesystem::exists(scanRoot, scanRootEc) || scanRootEc ||
@@ -1538,6 +1609,8 @@ ScanResult GetFileList(const std::string& steamPath,
         outResult.files.clear();
         LOG("GetAutoCloudFileList: aborting app %u bootstrap due to root/path collision", appId);
     }
+
+    if (!hasRootCollision) WriteSaveRootsMap(steamPath, accountId, appId, std::move(saveRoots));
 
     LOG("GetAutoCloudFileList: found %zu rule-matched Auto-Cloud files for app %u (scanLimitHit=%d, hasRootCollision=%d)",
         outResult.files.size(), appId, (int)scanLimitHit, (int)hasRootCollision);

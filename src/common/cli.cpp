@@ -16,6 +16,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <functional>
 #include <map>
 #include <memory>
@@ -567,6 +569,179 @@ std::string CmdDownloadBlob(const std::string& provider, const std::string& acco
         {"found", JsonBool(true)},
         {"content", JsonString(content)}
     });
+}
+
+namespace {
+bool IsDigits(const std::string& s) {
+    return !s.empty() && s.find_first_not_of("0123456789") == std::string::npos;
+}
+
+bool IsShaHex(const std::string& s) {
+    return s.size() == 40 && s.find_first_not_of("0123456789abcdef") == std::string::npos;
+}
+
+// Cloud filenames are '/'-separated relative paths; refuse anything that could
+// climb out of blobs/.
+bool IsSafeCloudName(const std::string& name) {
+    if (name.empty() || name.front() == '/' || name.find('\\') != std::string::npos ||
+        name.find(':') != std::string::npos)
+        return false;
+    std::stringstream ss(name);
+    std::string part;
+    while (std::getline(ss, part, '/'))
+        if (part.empty() || part == "." || part == "..") return false;
+    return true;
+}
+
+std::string ShaHexOf(const std::vector<uint8_t>& sha) {
+    static const char* hex = "0123456789abcdef";
+    std::string out;
+    for (uint8_t b : sha) {
+        out.push_back(hex[b >> 4]);
+        out.push_back(hex[b & 15]);
+    }
+    return out;
+}
+
+std::unique_ptr<ICloudProvider> OpenProvider(const std::string& provider, std::string& error) {
+    std::string tokenPath = GetTokenPath(provider);
+    if (tokenPath.empty()) { error = "Cannot determine config directory"; return nullptr; }
+    auto prov = CreateCloudProvider(provider);
+    if (!prov) { error = "Unknown provider: " + provider; return nullptr; }
+    if (!prov->Init(tokenPath)) { error = "Failed to initialize provider"; return nullptr; }
+    if (!prov->IsAuthenticated()) { prov->Shutdown(); error = "Not authenticated"; return nullptr; }
+    return prov;
+}
+}  // namespace
+
+std::string CmdListVersions(const std::string& provider, const std::string& accountId,
+                            const std::string& appId) {
+    if (!IsDigits(accountId) || !IsDigits(appId)) return JsonError("Invalid account or app id");
+    std::string error;
+    auto prov = OpenProvider(provider, error);
+    if (!prov) return JsonError(error);
+
+    const std::string base = accountId + "/" + appId + "/";
+    std::vector<uint8_t> stateBytes;
+    bool stateFound = prov->Download(base + "state.cloudredirect", stateBytes);
+    CloudStorage::CloudAppState state;
+    if (stateFound &&
+        !CloudStorage::DeserializeState(std::string(stateBytes.begin(), stateBytes.end()), state)) {
+        prov->Shutdown();
+        return JsonError("Cloud state could not be parsed");
+    }
+
+    const std::string prefix = base + "blobs/";
+    std::vector<ICloudProvider::FileInfo> files;
+    bool complete = false;
+    bool listed = prov->ListChecked(prefix, files, &complete);
+    prov->Shutdown();
+    if (!listed) return JsonError("Failed to list blobs");
+
+    std::ostringstream current;
+    current << "[";
+    bool first = true;
+    for (const auto& [name, fe] : state.files) {
+        if (fe.persistState != 0 || !IsSafeCloudName(name)) continue;  // deleted/forgotten
+        if (!first) current << ",";
+        first = false;
+        current << JsonObject({{"name", JsonString(name)},
+                               {"sha", JsonString(ShaHexOf(fe.sha))},
+                               {"size", JsonInt((int64_t)fe.size)},
+                               {"time", JsonInt((int64_t)fe.timestamp)}});
+    }
+    current << "]";
+
+    std::ostringstream blobs;
+    blobs << "[";
+    first = true;
+    for (const auto& f : files) {
+        if (f.path.size() <= prefix.size() || f.path.back() == '/') continue;
+        if (!f.isLatest || f.isDeleteMarker) continue;
+        std::string rest = f.path.substr(prefix.size());
+        size_t slash = rest.rfind('/');
+        if (slash == std::string::npos) continue;  // legacy flat blob
+        std::string name = rest.substr(0, slash);
+        std::string sha = rest.substr(slash + 1);
+        if (!IsShaHex(sha) || !IsSafeCloudName(name)) continue;
+        if (!first) blobs << ",";
+        first = false;
+        blobs << JsonObject({{"name", JsonString(name)},
+                             {"sha", JsonString(sha)},
+                             {"size", JsonInt((int64_t)f.size)},
+                             {"modified", JsonInt((int64_t)f.modifiedTime)}});
+    }
+    blobs << "]";
+
+    return JsonObject({{"success", JsonBool(true)},
+                       {"complete", JsonBool(complete)},
+                       {"stateFound", JsonBool(stateFound)},
+                       {"cn", JsonInt((int64_t)state.cn)},
+                       {"current", current.str()},
+                       {"blobs", blobs.str()}});
+}
+
+std::string CmdDownloadVersions(const std::string& provider, const std::string& accountId,
+                                const std::string& appId, const std::string& requestPath) {
+    if (!IsDigits(accountId) || !IsDigits(appId)) return JsonError("Invalid account or app id");
+    std::string requestText;
+    {
+        std::ifstream in(FileUtil::Utf8ToPath(requestPath), std::ios::binary);
+        if (!in) return JsonError("Cannot read request file");
+        requestText.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
+    }
+    Json::Value req = Json::Parse(requestText);
+    const Json::Value& items = req["items"];
+    if (items.type != Json::Type::Array || items.size() == 0) return JsonError("Empty request");
+
+    std::string error;
+    auto prov = OpenProvider(provider, error);
+    if (!prov) return JsonError(error);
+
+    int written = 0;
+    std::ostringstream failed;
+    failed << "[";
+    bool first = true;
+    auto fail = [&](const std::string& name, const std::string& why) {
+        if (!first) failed << ",";
+        first = false;
+        failed << JsonObject({{"name", JsonString(name)}, {"error", JsonString(why)}});
+    };
+    for (size_t i = 0; i < items.size(); i++) {
+        const std::string name = items[i]["name"].str();
+        const std::string sha = items[i]["sha"].str();
+        const std::string out = items[i]["out"].str();
+        if (!IsSafeCloudName(name) || !IsShaHex(sha) || out.empty()) {
+            fail(name, "invalid request item");
+            continue;
+        }
+        std::vector<uint8_t> data;
+        if (!prov->Download(accountId + "/" + appId + "/blobs/" + name + "/" + sha, data)) {
+            fail(name, "download failed");
+            continue;
+        }
+        if (ShaHexOf(FileUtil::SHA1(data.data(), data.size())) != sha) {
+            fail(name, "content does not match its SHA1");
+            continue;
+        }
+        std::error_code ec;
+        const auto outPath = FileUtil::Utf8ToPath(out);
+        std::filesystem::create_directories(outPath.parent_path(), ec);
+        std::ofstream f(outPath, std::ios::binary | std::ios::trunc);
+        f.write(reinterpret_cast<const char*>(data.data()), (std::streamsize)data.size());
+        f.close();
+        if (!f) {
+            fail(name, "cannot write " + out);
+            continue;
+        }
+        ++written;
+    }
+    prov->Shutdown();
+    failed << "]";
+    const bool ok = written == (int)items.size();
+    return JsonObject({{"success", JsonBool(ok)},
+                       {"written", JsonInt(written)},
+                       {"failed", failed.str()}});
 }
 
 std::string CmdDeleteBlobs(const std::string& provider, const std::string& accountId, const std::string& appId,
@@ -1299,6 +1474,8 @@ static void PrintUsage() {
     fprintf(stderr, "  list-blobs <provider> <account_id> <app_id>  List blob files in app\n");
     fprintf(stderr, "  download-blob <provider> <account_id> <app_id> <blob>  Download a single blob's content\n");
     fprintf(stderr, "  list-all-stats <provider>  Search the cloud for every app's stats.json\n");
+    fprintf(stderr, "  list-versions <provider> <account_id> <app_id>  Current state and every stored save version\n");
+    fprintf(stderr, "  download-versions <provider> <account_id> <app_id> <request.json>  Download chosen versions to files\n");
     fprintf(stderr, "  delete-blobs <provider> <account_id> <app_id> <blob>...  Delete specific blobs\n");
     fprintf(stderr, "  sync-remote-app <provider> <account_id> <app_id> <cloud_root>  Run SyncFromCloud for one app\n");
     fprintf(stderr, "  sync-all-remote-apps <provider> <account_id> <cloud_root>  Run SyncAllFromCloud for one account\n");
@@ -1375,6 +1552,20 @@ int RunCli(int argc, char** argv) {
             return 1;
         }
         result = CmdListAllStats(argv[3]);
+    }
+    else if (strcmp(command, "list-versions") == 0) {
+        if (argc < 6) {
+            fprintf(stderr, "Error: list-versions requires <provider> <account_id> <app_id>\n");
+            return 1;
+        }
+        result = CmdListVersions(argv[3], argv[4], argv[5]);
+    }
+    else if (strcmp(command, "download-versions") == 0) {
+        if (argc < 7) {
+            fprintf(stderr, "Error: download-versions requires <provider> <account_id> <app_id> <request.json>\n");
+            return 1;
+        }
+        result = CmdDownloadVersions(argv[3], argv[4], argv[5], argv[6]);
     }
     else if (strcmp(command, "delete-blobs") == 0) {
         if (argc < 7) {

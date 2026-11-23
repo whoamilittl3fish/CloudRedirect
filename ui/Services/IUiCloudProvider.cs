@@ -41,4 +41,18 @@ internal interface IUiCloudProvider
     Task<CloudProviderClient.DeleteBlobsResult> DeleteAppBlobsAsync(
         string accountId, string appId,
         IReadOnlyCollection<string> blobFilenames, CancellationToken cancel);
+
+    /// <summary>
+    /// The current cloud state's files plus every stored blob version
+    /// (blobs/&lt;name&gt;/&lt;sha&gt;) with its time, for the Versions picker.
+    /// </summary>
+    Task<CloudProviderClient.ListVersionsResult> ListVersionsAsync(
+        string accountId, string appId, CancellationToken cancel);
+
+    /// <summary>
+    /// Downloads each blobs/&lt;name&gt;/&lt;sha&gt; to its OutPath, verifying the SHA1.
+    /// </summary>
+    Task<CloudProviderClient.DownloadVersionsResult> DownloadVersionsAsync(
+        string accountId, string appId,
+        IReadOnlyList<CloudProviderClient.VersionDownload> items, CancellationToken cancel);
 }

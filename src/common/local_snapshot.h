@@ -50,14 +50,11 @@ Result Take(const std::string& cloudRoot, uint32_t accountId, uint32_t appId,
 
 // Backup of the losing copy when the DLL merges two save folders of one game
 // (TicketLink). Stored as <stamp>-relink with the same layout and .snapshot.json
-// (plus "relink":true, "deleteAfterSync"), so the app can restore or delete it.
-// Taken even when local_backups_kept is 0, never skipped as identical and never
-// rotated out by Take; it still expires after maxAgeDays. With deleteAfterSync the
-// next successful cloud publish removes it: use that only when the cloud already
-// holds the losing copy (it stays there as a previous version).
+// (plus "relink":true), so the app can restore or delete it. Taken even when
+// local_backups_kept is 0, never skipped as identical, never rotated out by Take and
+// never pruned as redundant; it only expires after maxAgeDays or is deleted in the app.
 Result TakeRelinkBackup(const std::string& cloudRoot, uint32_t accountId, uint32_t appId,
-                        const std::vector<LocalFile>& files, const std::string& stamp,
-                        bool deleteAfterSync);
+                        const std::vector<LocalFile>& files, const std::string& stamp);
 
 // True for a folder written by TakeRelinkBackup.
 bool IsRelinkBackupDir(const std::string& folderName);
@@ -65,7 +62,7 @@ bool IsRelinkBackupDir(const std::string& folderName);
 // Deletes snapshots of this app whose files the cloud already holds with identical
 // content (cloudShas: cloud filename -> SHA1), then expired ones. Returns how many
 // snapshot folders were removed. Call after a successful cloud publish. Relink
-// backups marked deleteAfterSync are removed here too.
+// backups are only expired here.
 size_t PruneRedundantAndExpired(const std::string& cloudRoot, uint32_t accountId, uint32_t appId,
                                 const std::unordered_map<std::string, std::vector<uint8_t>>& cloudShas);
 

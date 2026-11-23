@@ -2164,6 +2164,58 @@
   <data name="History_DeleteBackupFailed" xml:space="preserve">
     <value>删除失败：{0}</value>
   </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="History_VersionsButton" xml:space="preserve">
+    <value>版本</value>
+  </data>
+  <data name="History_VersionsTitle" xml:space="preserve">
+    <value>存档版本</value>
+  </data>
+  <data name="History_VersionsIntro" xml:space="preserve">
+    <value>选择要放回 {0} 存档文件夹的版本。被替换的文件会先保存为本地备份。恢复前请先退出 Steam。</value>
+  </data>
+  <data name="History_VersionsRestore" xml:space="preserve">
+    <value>恢复</value>
+  </data>
+  <data name="History_VersionsNone" xml:space="preserve">
+    <value>未找到该游戏的已存储版本。</value>
+  </data>
+  <data name="History_VersionsCloudError" xml:space="preserve">
+    <value>云端版本不可用：{0}</value>
+  </data>
+  <data name="History_Ver_CloudCurrent" xml:space="preserve">
+    <value>云端 · 当前</value>
+  </data>
+  <data name="History_Ver_CloudEarlier" xml:space="preserve">
+    <value>云端 · 较早</value>
+  </data>
+  <data name="History_Ver_Local" xml:space="preserve">
+    <value>本地备份</value>
+  </data>
+  <data name="History_Ver_OtherFolder" xml:space="preserve">
+    <value>另一个存档文件夹</value>
+  </data>
+  <data name="History_Ver_Line" xml:space="preserve">
+    <value>{0} · {1} · {2} 个文件 · {3}</value>
+  </data>
+  <data name="History_Ver_Changed" xml:space="preserve">
+    <value>{1} 个文件中有 {0} 个与当前不同</value>
+  </data>
+  <data name="History_VersionsSteamRunning" xml:space="preserve">
+    <value>恢复版本前请完全退出 Steam。</value>
+  </data>
+  <data name="History_VersionsNoFolder" xml:space="preserve">
+    <value>尚不清楚 {0} 在此电脑上的保存位置。请在安装 CloudRedirect 后启动一次游戏，然后重试。</value>
+  </data>
+  <data name="History_VersionsSame" xml:space="preserve">
+    <value>存档文件夹已与此版本一致。</value>
+  </data>
+  <data name="History_VersionsBackedUp" xml:space="preserve">
+    <value>被替换的文件保存在：
+{0}</value>
+  </data>
 </root>
 
 

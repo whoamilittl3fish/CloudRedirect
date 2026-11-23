@@ -207,6 +207,61 @@ internal sealed class CliUiCloudProvider : IUiCloudProvider
         }
     }
 
+    public async Task<CloudProviderClient.ListVersionsResult> ListVersionsAsync(
+        string accountId, string appId, CancellationToken cancel)
+    {
+        var result = await RunCliAsync($"list-versions {_provider} {accountId} {appId}", cancel);
+        try
+        {
+            var parsed = CloudProviderClient.ParseListVersions(result.Output);
+            if (result.ExitCode != 0 && parsed.Error == null)
+                return parsed with { Success = false, Error = $"CLI exited with code {result.ExitCode}" };
+            return parsed;
+        }
+        catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
+        {
+            return new CloudProviderClient.ListVersionsResult(false, Array.Empty<CloudProviderClient.CloudVersionFile>(),
+                Array.Empty<CloudProviderClient.CloudBlobVersion>(), false,
+                TryGetError(result.Output) ?? $"Invalid CLI response: {ex.Message}");
+        }
+    }
+
+    public async Task<CloudProviderClient.DownloadVersionsResult> DownloadVersionsAsync(
+        string accountId, string appId,
+        IReadOnlyList<CloudProviderClient.VersionDownload> items, CancellationToken cancel)
+    {
+        // Names and paths go through a request file: no command-line quoting issues.
+        var requestPath = Path.Combine(Path.GetTempPath(), $"cr-versions-{Guid.NewGuid():N}.json");
+        var request = new { items = items.Select(i => new { name = i.Name, sha = i.Sha, @out = i.OutPath }).ToArray() };
+        await File.WriteAllTextAsync(requestPath, JsonSerializer.Serialize(request), new UTF8Encoding(false), cancel);
+        try
+        {
+            var result = await RunCliAsync($"download-versions {_provider} {accountId} {appId} \"{requestPath}\"", cancel);
+            try
+            {
+                using var doc = JsonDocument.Parse(result.Output);
+                var root = doc.RootElement;
+                bool success = root.TryGetProperty("success", out var s) && s.GetBoolean();
+                int written = root.TryGetProperty("written", out var w) ? w.GetInt32() : 0;
+                string? error = root.TryGetProperty("error", out var e) ? e.GetString() : null;
+                if (error == null && root.TryGetProperty("failed", out var f) && f.ValueKind == JsonValueKind.Array && f.GetArrayLength() > 0)
+                {
+                    var first = f[0];
+                    error = $"{first.GetProperty("name").GetString()}: {first.GetProperty("error").GetString()}";
+                }
+                return new CloudProviderClient.DownloadVersionsResult(success && result.ExitCode == 0, written, error);
+            }
+            catch (JsonException ex)
+            {
+                return new CloudProviderClient.DownloadVersionsResult(false, 0, $"Invalid CLI response: {ex.Message}");
+            }
+        }
+        finally
+        {
+            try { File.Delete(requestPath); } catch { }
+        }
+    }
+
     /// <summary>
     /// Real signed bucket request (lists account 0), so bad keys/endpoint fail --
     /// unlike auth-status, which only parses the credential file. Null = OK.

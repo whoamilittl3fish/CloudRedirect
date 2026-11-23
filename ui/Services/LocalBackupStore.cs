@@ -50,6 +50,23 @@ internal static class LocalBackupStore
         return null;
     }
 
+    /// <summary>Every readable snapshot (regular and relink) for this account and app, newest first.</summary>
+    public static List<Snapshot> FindAll(uint accountId, uint appId)
+    {
+        var list = new List<Snapshot>();
+        var root = SyncHistoryReader.GetLocalBackupsDir();
+        if (root == null) return list;
+        var appDir = Path.Combine(root, accountId.ToString(CultureInfo.InvariantCulture),
+            appId.ToString(CultureInfo.InvariantCulture));
+        if (!Directory.Exists(appDir)) return list;
+        foreach (var dir in Directory.GetDirectories(appDir))
+        {
+            var snap = Read(dir);
+            if (snap != null) list.Add(snap);
+        }
+        return list.OrderByDescending(s => s.Taken).ToList();
+    }
+
     private static Snapshot? Read(string dir)
     {
         try

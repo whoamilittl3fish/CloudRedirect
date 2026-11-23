@@ -2191,4 +2191,56 @@ Close the game first. Current files that differ, and newer files the backup does
   <data name="History_DeleteBackupFailed" xml:space="preserve">
     <value>Delete failed: {0}</value>
   </data>
+  <data name="Dialog_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="History_VersionsButton" xml:space="preserve">
+    <value>Versions</value>
+  </data>
+  <data name="History_VersionsTitle" xml:space="preserve">
+    <value>Save versions</value>
+  </data>
+  <data name="History_VersionsIntro" xml:space="preserve">
+    <value>Pick the version of {0} to put back in its save folder. The files it replaces are kept as a local backup first. Exit Steam before restoring.</value>
+  </data>
+  <data name="History_VersionsRestore" xml:space="preserve">
+    <value>Restore</value>
+  </data>
+  <data name="History_VersionsNone" xml:space="preserve">
+    <value>No stored versions were found for this game.</value>
+  </data>
+  <data name="History_VersionsCloudError" xml:space="preserve">
+    <value>Cloud versions are unavailable: {0}</value>
+  </data>
+  <data name="History_Ver_CloudCurrent" xml:space="preserve">
+    <value>Cloud · current</value>
+  </data>
+  <data name="History_Ver_CloudEarlier" xml:space="preserve">
+    <value>Cloud · earlier</value>
+  </data>
+  <data name="History_Ver_Local" xml:space="preserve">
+    <value>Local backup</value>
+  </data>
+  <data name="History_Ver_OtherFolder" xml:space="preserve">
+    <value>Other save folder</value>
+  </data>
+  <data name="History_Ver_Line" xml:space="preserve">
+    <value>{0} · {1} · {2} files · {3}</value>
+  </data>
+  <data name="History_Ver_Changed" xml:space="preserve">
+    <value>{0} of {1} files differ from now</value>
+  </data>
+  <data name="History_VersionsSteamRunning" xml:space="preserve">
+    <value>Exit Steam completely before restoring a version.</value>
+  </data>
+  <data name="History_VersionsNoFolder" xml:space="preserve">
+    <value>Not known yet where {0} is saved on this PC. Launch the game once with CloudRedirect installed, then try again.</value>
+  </data>
+  <data name="History_VersionsSame" xml:space="preserve">
+    <value>The save folder already matches this version.</value>
+  </data>
+  <data name="History_VersionsBackedUp" xml:space="preserve">
+    <value>The files it replaced are kept in:
+{0}</value>
+  </data>
 </root>
