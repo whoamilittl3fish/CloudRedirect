@@ -59,10 +59,12 @@ public partial class SyncHistoryPage : Page
 
             bool multiAccount = _apps.Select(a => a.AccountId).Distinct().Count() > 1;
             var backups = await Task.Run(() =>
-                _apps.ToDictionary(a => a.Key, a => LocalBackupStore.FindLatest(a.AccountId, a.AppId)));
+                _apps.ToDictionary(a => a.Key, a => (
+                    LocalBackupStore.FindLatest(a.AccountId, a.AppId),
+                    LocalBackupStore.FindLatest(a.AccountId, a.AppId, relink: true))));
             foreach (var app in _apps)
             {
-                app.Backup = backups[app.Key];
+                (app.Backup, app.RelinkBackup) = backups[app.Key];
                 app.ShowAccount = multiAccount;
                 app.IsExpanded = expanded.Contains(app.Key);
                 if (names.TryGetValue(app.AppId, out var n)) app.Name = n;
@@ -118,8 +120,48 @@ public partial class SyncHistoryPage : Page
 
     private async void RestoreBackup_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is not FrameworkElement { Tag: AppHistory app } || app.Backup == null) return;
-        var snap = app.Backup;
+        if (sender is FrameworkElement { Tag: AppHistory app } && app.Backup != null)
+            await RestoreAsync(app, app.Backup);
+    }
+
+    private async void RestoreRelinkBackup_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: AppHistory app } && app.RelinkBackup != null)
+            await RestoreAsync(app, app.RelinkBackup);
+    }
+
+    private async void DeleteBackup_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: AppHistory app } && app.Backup != null)
+            await DeleteAsync(app, app.Backup);
+    }
+
+    private async void DeleteRelinkBackup_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement { Tag: AppHistory app } && app.RelinkBackup != null)
+            await DeleteAsync(app, app.RelinkBackup);
+    }
+
+    private async Task DeleteAsync(AppHistory app, LocalBackupStore.Snapshot snap)
+    {
+        var title = S.Get("History_DeleteBackupTitle");
+        if (!await Dialog.ConfirmDangerAsync(title,
+                S.Format("History_DeleteBackupPrompt", app.DisplayName, FormatTime(new DateTimeOffset(snap.Taken)),
+                         snap.Files.Count)))
+            return;
+        try
+        {
+            await Task.Run(() => LocalBackupStore.Delete(snap));
+        }
+        catch (Exception ex)
+        {
+            await Dialog.ShowErrorAsync(title, S.Format("History_DeleteBackupFailed", ex.Message));
+        }
+        await LoadAsync();
+    }
+
+    private async Task RestoreAsync(AppHistory app, LocalBackupStore.Snapshot snap)
+    {
         var title = S.Get("History_RestoreTitle");
         if (!await Dialog.ConfirmDangerAsync(title,
                 S.Format("History_RestorePrompt", app.DisplayName, FormatTime(new DateTimeOffset(snap.Taken)),
@@ -161,6 +203,7 @@ public partial class SyncHistoryPage : Page
             SyncHistoryReader.LocalBackup => e.Ok
                 ? S.Format("History_Ev_LocalBackup", e.Files)
                 : S.Get("History_Ev_LocalBackupFailed"),
+            SyncHistoryReader.SaveFolderRelinked => S.Get("History_Ev_SaveFolderRelinked"),
             _ => e.Kind,
         };
         return string.IsNullOrEmpty(e.Message) ? text : $"{text}: {e.Message}";
@@ -176,6 +219,7 @@ public partial class SyncHistoryPage : Page
         SyncHistoryReader.LocalBackup => e.Ok
             ? (SymbolRegular.ShieldCheckmark24, GoodBrush)
             : (SymbolRegular.ShieldDismiss24, BadBrush),
+        SyncHistoryReader.SaveFolderRelinked => (SymbolRegular.ArrowSwap24, GoodBrush),
         _ => (SymbolRegular.ErrorCircle24, WarnBrush),
     };
 
@@ -225,6 +269,16 @@ public partial class SyncHistoryPage : Page
         public Visibility BackupVisibility => _backup != null ? Visibility.Visible : Visibility.Collapsed;
         public string BackupLabel => _backup == null ? "" :
             S.Format("History_RestoreButton", FormatTime(new DateTimeOffset(_backup.Taken)));
+
+        private LocalBackupStore.Snapshot? _relinkBackup;
+        public LocalBackupStore.Snapshot? RelinkBackup
+        {
+            get => _relinkBackup;
+            set { _relinkBackup = value; Notify(nameof(RelinkBackup)); Notify(nameof(RelinkBackupVisibility)); Notify(nameof(RelinkBackupLabel)); }
+        }
+        public Visibility RelinkBackupVisibility => _relinkBackup != null ? Visibility.Visible : Visibility.Collapsed;
+        public string RelinkBackupLabel => _relinkBackup == null ? "" :
+            S.Format("History_RestoreRelinkButton", FormatTime(new DateTimeOffset(_relinkBackup.Taken)));
         public (uint, uint) Key => (AccountId, AppId);
         public bool ShowAccount { get; set; }
         public DateTimeOffset LastTime => _last.Time;

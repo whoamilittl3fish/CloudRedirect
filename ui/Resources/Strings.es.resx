@@ -2120,4 +2120,22 @@ Cierra el juego primero. Los archivos actuales que difieran y los más nuevos qu
   <data name="History_RestoreFailed" xml:space="preserve">
     <value>Error al restaurar: {0}</value>
   </data>
+  <data name="History_Ev_SaveFolderRelinked" xml:space="preserve">
+    <value>Carpetas de partidas unidas: se conservó la mayor y se respaldó la otra</value>
+  </data>
+  <data name="History_RestoreRelinkButton" xml:space="preserve">
+    <value>Restaurar la otra carpeta de partidas ({0})</value>
+  </data>
+  <data name="History_DeleteBackupButton" xml:space="preserve">
+    <value>Eliminar copia</value>
+  </data>
+  <data name="History_DeleteBackupTitle" xml:space="preserve">
+    <value>Eliminar copia</value>
+  </data>
+  <data name="History_DeleteBackupPrompt" xml:space="preserve">
+    <value>¿Eliminar la copia de {0} del {1} ({2} archivos)? No se puede deshacer.</value>
+  </data>
+  <data name="History_DeleteBackupFailed" xml:space="preserve">
+    <value>Error al eliminar: {0}</value>
+  </data>
 </root>

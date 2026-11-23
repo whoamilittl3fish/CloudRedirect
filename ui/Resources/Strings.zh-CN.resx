@@ -2146,6 +2146,24 @@
   <data name="History_RestoreFailed" xml:space="preserve">
     <value>恢复失败：{0}</value>
   </data>
+  <data name="History_Ev_SaveFolderRelinked" xml:space="preserve">
+    <value>已合并存档文件夹：保留较大的一个，另一个已备份</value>
+  </data>
+  <data name="History_RestoreRelinkButton" xml:space="preserve">
+    <value>恢复另一个存档文件夹（{0}）</value>
+  </data>
+  <data name="History_DeleteBackupButton" xml:space="preserve">
+    <value>删除备份</value>
+  </data>
+  <data name="History_DeleteBackupTitle" xml:space="preserve">
+    <value>删除备份</value>
+  </data>
+  <data name="History_DeleteBackupPrompt" xml:space="preserve">
+    <value>删除 {0} 于 {1} 的备份（{2} 个文件）？此操作无法撤销。</value>
+  </data>
+  <data name="History_DeleteBackupFailed" xml:space="preserve">
+    <value>删除失败：{0}</value>
+  </data>
 </root>
 
 

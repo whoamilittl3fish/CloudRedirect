@@ -98,14 +98,36 @@
                                         <TextBlock Text="{Binding LastUploadLine}"
                                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                    FontSize="12" />
-                                        <ui:Button Content="{Binding BackupLabel}"
-                                                   Visibility="{Binding BackupVisibility}"
-                                                   Appearance="Secondary"
-                                                   Icon="{ui:SymbolIcon ArrowUndo24}"
-                                                   Tag="{Binding}"
-                                                   Click="RestoreBackup_Click"
-                                                   HorizontalAlignment="Left"
-                                                   Margin="0,6,0,0" />
+                                        <StackPanel Orientation="Horizontal"
+                                                    Visibility="{Binding BackupVisibility}"
+                                                    Margin="0,6,0,0">
+                                            <ui:Button Content="{Binding BackupLabel}"
+                                                       Appearance="Secondary"
+                                                       Icon="{ui:SymbolIcon ArrowUndo24}"
+                                                       Tag="{Binding}"
+                                                       Click="RestoreBackup_Click" />
+                                            <ui:Button Content="{res:Loc History_DeleteBackupButton}"
+                                                       Appearance="Secondary"
+                                                       Icon="{ui:SymbolIcon Delete24}"
+                                                       Tag="{Binding}"
+                                                       Click="DeleteBackup_Click"
+                                                       Margin="6,0,0,0" />
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal"
+                                                    Visibility="{Binding RelinkBackupVisibility}"
+                                                    Margin="0,6,0,0">
+                                            <ui:Button Content="{Binding RelinkBackupLabel}"
+                                                       Appearance="Secondary"
+                                                       Icon="{ui:SymbolIcon ArrowSwap24}"
+                                                       Tag="{Binding}"
+                                                       Click="RestoreRelinkBackup_Click" />
+                                            <ui:Button Content="{res:Loc History_DeleteBackupButton}"
+                                                       Appearance="Secondary"
+                                                       Icon="{ui:SymbolIcon Delete24}"
+                                                       Tag="{Binding}"
+                                                       Click="DeleteRelinkBackup_Click"
+                                                       Margin="6,0,0,0" />
+                                        </StackPanel>
                                     </StackPanel>
                                 </Grid>
 

@@ -1,6 +1,7 @@
 #include "autocloud_scan.h"
 #include "autocloud_util.h"
 #include "file_util.h"
+#include "local_snapshot.h"
 #include "log.h"
 #include "steam_root_ids.h"
 #include "sync_history.h"
@@ -761,11 +762,168 @@ static bool CreateJunction(const std::filesystem::path& link, const std::filesys
     return ok != FALSE;
 }
 
-// Never moves or deletes save data: a ticket-owner folder that holds files is
-// left alone with a log line; only a missing or empty one becomes a junction.
+// Regular files under `dir` (junctions and symlinks are not followed), with
+// paths relative to `dir` using '/'. `bytes` sums them, not counting Steam's
+// steam_autocloud.vdf marker. False if the folder could not be walked.
+struct SaveFolderFile {
+    std::filesystem::path full;
+    std::string rel;
+};
+static bool ListSaveFolder(const std::filesystem::path& dir, std::vector<SaveFolderFile>& out,
+                           uint64_t& bytes) {
+    out.clear();
+    bytes = 0;
+    std::error_code ec;
+    if (!std::filesystem::exists(dir, ec) || ec) return !ec;
+    std::filesystem::recursive_directory_iterator it(dir, ec), end;
+    if (ec) return false;
+    for (; it != end; it.increment(ec)) {
+        if (ec) return false;
+        const auto& entry = *it;
+        std::error_code fec;
+        if (entry.is_symlink(fec) ||
+            FileUtil::IsPathRedirectingReparsePoint(FileUtil::PathToUtf8(entry.path()))) {
+            if (entry.is_directory(fec)) it.disable_recursion_pending();
+            continue;
+        }
+        if (!entry.is_regular_file(fec) || fec) continue;
+        std::string name = FileUtil::PathToUtf8(entry.path().filename());
+        if (name == "steam_autocloud.vdf") continue;
+        uint64_t size = (uint64_t)entry.file_size(fec);
+        if (fec) return false;
+        std::string rel = NormalizeSlashes(FileUtil::PathToUtf8(entry.path().lexically_relative(dir)));
+        if (rel.empty() || !IsSafeRelativePath(rel)) return false;
+        out.push_back({entry.path(), rel});
+        bytes += size;
+    }
+    return true;
+}
+
+// "<dir>.cr-old-<stamp>": unique, so a leftover from an interrupted run never blocks.
+static std::wstring AsideName(const std::filesystem::path& dir) {
+    const std::string stamp = LocalSnapshot::NowStamp();
+    return dir.wstring() + L".cr-old-" + std::wstring(stamp.begin(), stamp.end());
+}
+
+// The folder moved aside is already backed up (or is the empty copy), so a failure
+// here only leaves a stray folder behind.
+static void RemoveAside(uint32_t appId, const std::wstring& dir) {
+    std::error_code ec;
+    std::filesystem::remove_all(std::filesystem::path(dir), ec);
+    if (ec)
+        LOG("[TicketLink] app %u: could not remove %s: %s", appId,
+            FileUtil::PathToUtf8(std::filesystem::path(dir)).c_str(), ec.message().c_str());
+}
+
+// The ticket-owner folder already holds saves. Keep whichever of the two folders
+// has more bytes of save data (a tie keeps the real folder, which the cloud already
+// has), back up the other one as a relink snapshot, then leave the winner in the
+// real folder and make the owner folder a junction to it. Any failure before the
+// swap leaves both folders as they were. Returns true when the owner folder is gone
+// and the caller should create the junction.
+static bool ResolveTicketOwnerFolder(const std::string& steamPath, uint32_t appId,
+                                     uint32_t accountId, uint32_t owner,
+                                     const std::string& cloudPrefix,
+                                     const std::filesystem::path& ownerDir,
+                                     const std::filesystem::path& realDir,
+                                     std::string& historyMsg, std::string& failure) {
+    const std::string ownerUtf8 = FileUtil::PathToUtf8(ownerDir);
+    const std::string realUtf8 = FileUtil::PathToUtf8(realDir);
+    std::vector<SaveFolderFile> ownerFiles, realFiles;
+    uint64_t ownerBytes = 0, realBytes = 0;
+    if (!ListSaveFolder(ownerDir, ownerFiles, ownerBytes) ||
+        !ListSaveFolder(realDir, realFiles, realBytes)) {
+        failure = "could not read the save folders";
+        return false;
+    }
+    const bool ownerWins = ownerBytes > realBytes;
+    const auto& loserFiles = ownerWins ? realFiles : ownerFiles;
+    const std::string sizes = std::to_string(ownerBytes) + " bytes under ticket account " +
+                              std::to_string(owner) + " vs " + std::to_string(realBytes) +
+                              " bytes in " + realUtf8;
+
+    // 1. Back up the losing copy. Its recorded paths go through the owner folder or
+    //    the real folder, which both lead to the kept saves afterwards, so the app's
+    //    Restore puts it back where the game reads.
+    std::string backupDir;
+    if (!loserFiles.empty()) {
+        std::vector<LocalSnapshot::LocalFile> files;
+        files.reserve(loserFiles.size());
+        for (const auto& f : loserFiles) {
+            std::vector<uint8_t> bytes;
+            LocalSnapshot::LocalFile lf;
+            lf.cloudName = cloudPrefix + f.rel;
+            lf.fullPath = FileUtil::PathToUtf8(f.full);
+            lf.sha = ReadAndHashFile(lf.fullPath, bytes);
+            if (lf.sha.empty()) {
+                failure = "could not read " + lf.fullPath + " for the backup";
+                return false;
+            }
+            files.push_back(std::move(lf));
+        }
+        const std::string cloudRoot =
+            FileUtil::PathToUtf8(FileUtil::Utf8ToPath(steamPath) / "cloud_redirect");
+        // The real folder's content is what the cloud holds, and stays there as a
+        // previous version after the next upload; the owner copy was never synced.
+        auto r = LocalSnapshot::TakeRelinkBackup(cloudRoot, accountId, appId, files,
+                                                 LocalSnapshot::NowStamp(), /*deleteAfterSync=*/ownerWins);
+        if (!r.taken) {
+            failure = "backup failed (" + r.error + ")";
+            return false;
+        }
+        backupDir = r.dir;
+    }
+
+    // 2. Swap with renames only (same volume), so no save is ever half-copied. A
+    //    failed swap changes nothing, so its backup is dropped again: the next scan
+    //    retries and would otherwise pile up copies.
+    std::error_code ec;
+    auto dropBackup = [&]() {
+        if (!backupDir.empty()) std::filesystem::remove_all(FileUtil::Utf8ToPath(backupDir), ec);
+    };
+    if (ownerWins) {
+        std::filesystem::create_directories(realDir.parent_path(), ec);
+        const std::wstring old = AsideName(realDir);
+        const bool hadReal = std::filesystem::exists(realDir, ec);
+        if (hadReal && !MoveFileExW(realDir.c_str(), old.c_str(), 0)) {
+            failure = "could not move " + realUtf8 + " aside (err=" + std::to_string(GetLastError()) + ")";
+            dropBackup();
+            return false;
+        }
+        if (!MoveFileExW(ownerDir.c_str(), realDir.c_str(), 0)) {
+            DWORD err = GetLastError();
+            if (hadReal) MoveFileExW(old.c_str(), realDir.c_str(), 0);
+            failure = "could not move " + ownerUtf8 + " (err=" + std::to_string(err) + ", game running?)";
+            dropBackup();
+            return false;
+        }
+        if (hadReal) RemoveAside(appId, old);
+        historyMsg = "kept the saves from ticket account " + std::to_string(owner) + " (" + sizes +
+                     ") and moved them to " + realUtf8;
+    } else {
+        const std::wstring old = AsideName(ownerDir);
+        if (!MoveFileExW(ownerDir.c_str(), old.c_str(), 0)) {
+            failure = "could not move " + ownerUtf8 + " aside (err=" + std::to_string(GetLastError()) +
+                      ", game running?)";
+            dropBackup();
+            return false;
+        }
+        RemoveAside(appId, old);
+        historyMsg = "kept the synced saves in " + realUtf8 + " (" + sizes + ")";
+    }
+    if (!backupDir.empty())
+        historyMsg += "; the other copy is backed up in " + backupDir +
+                      (ownerWins ? " until the next successful sync" : "");
+    return true;
+}
+
+// A missing or empty ticket-owner folder becomes a junction to the scanned folder.
+// One that holds saves is resolved first (ResolveTicketOwnerFolder): the larger
+// copy is kept, the other is backed up, never merged file by file.
 static void MaybeLinkTicketOwnerSaveDir(const std::string& steamPath, uint32_t appId,
                                         uint32_t accountId, const std::string& resolvedPathRaw,
                                         const std::string& rootDir,
+                                        const std::string& cloudPathPrefix,
                                         const std::filesystem::path& realDir) {
     const uint32_t owner = GetTicketOwnerAccountId(steamPath, appId);
     if (owner == 0 || owner == accountId) return;
@@ -812,26 +970,40 @@ static void MaybeLinkTicketOwnerSaveDir(const std::string& steamPath, uint32_t a
 
     if (std::filesystem::exists(ownerDir, ec) && !ec) {
         if (!std::filesystem::is_directory(ownerDir, ec) || ec) return;
-        std::filesystem::directory_iterator it(ownerDir, ec);
-        if (ec) return;
-        if (it != std::filesystem::directory_iterator()) {
-            if (noticeOnce("has-files")) {
-                LOG("[TicketLink] app %u: game saves under ticket account %u are not synced and "
-                    "were left untouched: %s -- merge them into %s and replace the folder with a "
-                    "junction (SaveLinkAll.ps1 does this)",
-                    appId, owner, ownerUtf8.c_str(), realUtf8.c_str());
-                SyncHistory::Event ev;
-                ev.appId = appId;
-                ev.kind = SyncHistory::kSaveNotSynced;
-                ev.ok = false;
-                ev.msg = "the game saves to " + ownerUtf8 + " (ticket account " +
-                         std::to_string(owner) + "), which is not synced; merge it into " +
-                         realUtf8 + " and link it (SaveLinkAll.ps1)";
-                SyncHistory::Record(accountId, ev);
-            }
-            return;
+        bool hasEntries = false;
+        {
+            // Scoped: an open directory handle would block renaming the folder below.
+            std::filesystem::directory_iterator it(ownerDir, ec);
+            if (ec) return;
+            hasEntries = it != std::filesystem::directory_iterator();
         }
-        if (!RemoveDirectoryW(ownerDir.c_str())) {
+        if (hasEntries) {
+            std::string msg, failure;
+            if (!ResolveTicketOwnerFolder(steamPath, appId, accountId, owner, cloudPathPrefix,
+                                          ownerDir, realDir, msg, failure)) {
+                if (noticeOnce("has-files")) {
+                    LOG("[TicketLink] app %u: game saves under ticket account %u are not synced and "
+                        "were left untouched: %s -- %s",
+                        appId, owner, ownerUtf8.c_str(), failure.c_str());
+                    SyncHistory::Event ev;
+                    ev.appId = appId;
+                    ev.kind = SyncHistory::kSaveNotSynced;
+                    ev.ok = false;
+                    ev.msg = "the game saves to " + ownerUtf8 + " (ticket account " +
+                             std::to_string(owner) + "), which is not synced; it was left as is: " +
+                             failure;
+                    SyncHistory::Record(accountId, ev);
+                }
+                return;
+            }
+            LOG("[TicketLink] app %u: %s", appId, msg.c_str());
+            SyncHistory::Event ev;
+            ev.appId = appId;
+            ev.kind = SyncHistory::kSaveFolderRelinked;
+            ev.ok = true;
+            ev.msg = msg;
+            SyncHistory::Record(accountId, ev);
+        } else if (!RemoveDirectoryW(ownerDir.c_str())) {
             LOG("[TicketLink] app %u: could not remove empty folder %s (err=%lu)",
                 appId, ownerUtf8.c_str(), GetLastError());
             return;
@@ -1217,7 +1389,10 @@ ScanResult GetFileList(const std::string& steamPath,
         // Ticket-owner save folder -> scanned folder, before the existence check so
         // a folder the link just created is walked in this same scan.
         MaybeLinkTicketOwnerSaveDir(steamPath, appId, accountId, rule.resolvedPath,
-                                    mapping->envExpansion, scanRoot);
+                                    mapping->envExpansion,
+                                    normalizedCloudPath.empty() ? std::string()
+                                                                : normalizedCloudPath + "/",
+                                    scanRoot);
 #endif
 
         std::error_code scanRootEc;

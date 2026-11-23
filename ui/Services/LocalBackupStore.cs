@@ -12,18 +12,27 @@ namespace CloudRedirect.Services;
 /// Reads and restores the local save snapshots the DLL takes before a cloud sync
 /// (src/common/local_snapshot.cpp):
 ///   Steam\cloud_redirect\local_backups\&lt;account&gt;\&lt;app&gt;\&lt;yyyyMMdd-HHmmss&gt;\
-/// with .snapshot.json = {"files":[{"name","sha","path"}]}.
+/// with .snapshot.json = {"files":[{"name","sha","path"}]}. Folders ending in
+/// "-relink" (optionally "-relink-N") hold the copy the DLL set aside when it merged a
+/// ticket-account save folder into the synced one; they are listed separately.
 /// </summary>
 internal static class LocalBackupStore
 {
     internal sealed record SnapshotFile(string Name, string Sha, string Path);
 
-    internal sealed record Snapshot(string Dir, DateTime Taken, IReadOnlyList<SnapshotFile> Files);
+    internal sealed record Snapshot(string Dir, DateTime Taken, IReadOnlyList<SnapshotFile> Files)
+    {
+        public bool IsRelink => IsRelinkDir(Dir);
+    }
 
     internal sealed record RestoreResult(int Restored, int MovedAside, string ReplacedDir);
 
-    /// <summary>The newest snapshot for this account and app, or null.</summary>
-    public static Snapshot? FindLatest(uint accountId, uint appId)
+    private static bool IsRelinkDir(string dir) =>
+        Path.GetFileName(dir.TrimEnd(Path.DirectorySeparatorChar)).Contains("-relink", StringComparison.Ordinal);
+
+    /// <summary>The newest regular snapshot (relink: false) or relink backup (relink: true)
+    /// for this account and app, or null.</summary>
+    public static Snapshot? FindLatest(uint accountId, uint appId, bool relink = false)
     {
         var root = SyncHistoryReader.GetLocalBackupsDir();
         if (root == null) return null;
@@ -31,7 +40,9 @@ internal static class LocalBackupStore
             appId.ToString(CultureInfo.InvariantCulture));
         if (!Directory.Exists(appDir)) return null;
 
-        foreach (var dir in Directory.GetDirectories(appDir).OrderByDescending(d => Path.GetFileName(d), StringComparer.Ordinal))
+        foreach (var dir in Directory.GetDirectories(appDir)
+                     .Where(d => IsRelinkDir(d) == relink)
+                     .OrderByDescending(d => Path.GetFileName(d), StringComparer.Ordinal))
         {
             var snap = Read(dir);
             if (snap != null) return snap;
@@ -124,6 +135,20 @@ internal static class LocalBackupStore
             restored++;
         }
         return new RestoreResult(restored, moved, moved > 0 ? replacedDir : "");
+    }
+
+    /// <summary>Deletes the snapshot folder (and the app folder once empty).</summary>
+    public static void Delete(Snapshot snap)
+    {
+        var root = SyncHistoryReader.GetLocalBackupsDir();
+        var full = Path.GetFullPath(snap.Dir);
+        // Only ever delete inside local_backups.
+        if (root == null || !full.StartsWith(Path.GetFullPath(root) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            throw new IOException($"Not a backup folder: {snap.Dir}");
+        if (Directory.Exists(full)) Directory.Delete(full, recursive: true);
+        var appDir = Path.GetDirectoryName(full);
+        if (appDir != null && Directory.Exists(appDir) && !Directory.EnumerateFileSystemEntries(appDir).Any())
+            Directory.Delete(appDir);
     }
 
     private static string Sha1(string path)

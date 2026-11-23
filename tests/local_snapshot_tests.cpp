@@ -171,6 +171,67 @@ static void TestExpired() {
     LS::SetMaxAgeDays(30);
 }
 
+static size_t CountDirs(const fs::path& d) {
+    size_t n = 0;
+    std::error_code ec;
+    for (auto& e : fs::directory_iterator(d, ec)) if (e.is_directory()) ++n;
+    return n;
+}
+
+static void TestRelinkSurvivesRotation() {
+    LS::SetKeep(1);
+    auto r = LS::TakeRelinkBackup((g_root / "cr").string(), 7, 60, {MakeFile("t.sav", "ticket", 61)},
+                                  "20261123-195300", /*deleteAfterSync=*/false);
+    CHECK(r.taken);
+    CHECK(fs::path(r.dir).filename() == "20261123-195300-relink");
+    CHECK(LS::IsRelinkBackupDir("20261123-195300-relink"));
+    CHECK(!LS::IsRelinkBackupDir("20261123-195300"));
+    std::string meta = ReadFile(fs::path(r.dir) / ".snapshot.json");
+    CHECK(meta.find("\"relink\":true") != std::string::npos);
+    CHECK(meta.find("\"deleteAfterSync\":false") != std::string::npos);
+    CHECK(ReadFile(fs::path(r.dir) / "t.sav") == "ticket");
+
+    // Regular snapshots rotate among themselves; the relink backup stays.
+    LS::Take((g_root / "cr").string(), 7, 60, {MakeFile("t.sav", "a", 62)}, "20261123-200000");
+    LS::Take((g_root / "cr").string(), 7, 60, {MakeFile("t.sav", "b", 63)}, "20261123-210000");
+    CHECK(CountDirs(AppDir(60)) == 2);
+    CHECK(fs::exists(r.dir));
+    CHECK(fs::exists(AppDir(60) / "20261123-210000"));
+
+    // Kept across a publish when not marked deleteAfterSync.
+    std::unordered_map<std::string, std::vector<uint8_t>> cloud = {{"t.sav", Sha(99)}};
+    CHECK(LS::PruneRedundantAndExpired((g_root / "cr").string(), 7, 60, cloud) == 0);
+    CHECK(fs::exists(r.dir));
+
+    // Taken even with regular snapshots switched off.
+    LS::SetKeep(0);
+    auto off = LS::TakeRelinkBackup((g_root / "cr").string(), 7, 61, {MakeFile("u.sav", "u", 64)},
+                                    "20261123-195300", false);
+    CHECK(off.taken);
+    LS::SetKeep(1);
+}
+
+static void TestRelinkDeleteAfterSync() {
+    LS::SetKeep(1);
+    auto r = LS::TakeRelinkBackup((g_root / "cr").string(), 7, 62, {MakeFile("v.sav", "old", 71)},
+                                  "20261123-195300", /*deleteAfterSync=*/true);
+    CHECK(r.taken);
+    std::unordered_map<std::string, std::vector<uint8_t>> cloud = {{"v.sav", Sha(72)}};
+    CHECK(LS::PruneRedundantAndExpired((g_root / "cr").string(), 7, 62, cloud) == 1);
+    CHECK(!fs::exists(r.dir));
+}
+
+static void TestRelinkFailureLeavesNothing() {
+    auto r = LS::TakeRelinkBackup((g_root / "cr").string(), 7, 63,
+                                  {{"gone.sav", (g_root / "game" / "nope.sav").string(), Sha(5)}},
+                                  "20261123-195300", false);
+    CHECK(!r.taken);
+    CHECK(!r.error.empty());
+    CHECK(CountDirs(AppDir(63)) == 0);
+    auto empty = LS::TakeRelinkBackup((g_root / "cr").string(), 7, 63, {}, "s", false);
+    CHECK(!empty.taken);
+}
+
 int main() {
     std::error_code ec;
     g_root = fs::temp_directory_path() / "cr_local_snapshot_tests";
@@ -186,6 +247,9 @@ int main() {
     TestMetadataHasPaths();
     TestRedundantDeleted();
     TestExpired();
+    TestRelinkSurvivesRotation();
+    TestRelinkDeleteAfterSync();
+    TestRelinkFailureLeavesNothing();
 
     fs::remove_all(g_root, ec);
     if (g_failures == 0) {

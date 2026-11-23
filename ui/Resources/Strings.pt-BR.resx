@@ -2125,4 +2125,22 @@ Feche o jogo antes. Os arquivos atuais diferentes e os mais novos que o backup n
   <data name="History_RestoreFailed" xml:space="preserve">
     <value>Falha ao restaurar: {0}</value>
   </data>
+  <data name="History_Ev_SaveFolderRelinked" xml:space="preserve">
+    <value>Pastas de saves unidas: a maior foi mantida e a outra salva em backup</value>
+  </data>
+  <data name="History_RestoreRelinkButton" xml:space="preserve">
+    <value>Restaurar a outra pasta de saves ({0})</value>
+  </data>
+  <data name="History_DeleteBackupButton" xml:space="preserve">
+    <value>Excluir backup</value>
+  </data>
+  <data name="History_DeleteBackupTitle" xml:space="preserve">
+    <value>Excluir backup</value>
+  </data>
+  <data name="History_DeleteBackupPrompt" xml:space="preserve">
+    <value>Excluir o backup de {0} feito em {1} ({2} arquivos)? Isso não pode ser desfeito.</value>
+  </data>
+  <data name="History_DeleteBackupFailed" xml:space="preserve">
+    <value>Falha ao excluir: {0}</value>
+  </data>
 </root>

@@ -17,6 +17,7 @@ inline constexpr const char* kConflict         = "conflict";          // user an
 inline constexpr const char* kCloudUnreachable = "cloud_unreachable"; // cloud state fetch failed or timed out
 inline constexpr const char* kSaveNotSynced    = "save_not_synced";   // saves found where they are not synced
 inline constexpr const char* kLocalBackup      = "local_backup";      // local saves copied aside before a cloud sync
+inline constexpr const char* kSaveFolderRelinked = "save_folder_relinked"; // ticket-account save folder merged and linked
 
 inline constexpr uint64_t kMaxBytes = 512 * 1024;
 

@@ -29,6 +29,7 @@ internal static class SyncHistoryReader
     public const string CloudUnreachable = "cloud_unreachable";
     public const string SaveNotSynced = "save_not_synced";
     public const string LocalBackup = "local_backup";
+    public const string SaveFolderRelinked = "save_folder_relinked";
 
     public static string? GetHistoryDir()
     {

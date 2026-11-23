@@ -2173,4 +2173,22 @@ Close the game first. Current files that differ, and newer files the backup does
   <data name="History_RestoreFailed" xml:space="preserve">
     <value>Restore failed: {0}</value>
   </data>
+  <data name="History_Ev_SaveFolderRelinked" xml:space="preserve">
+    <value>Save folders merged: kept the larger one, backed up the other</value>
+  </data>
+  <data name="History_RestoreRelinkButton" xml:space="preserve">
+    <value>Restore the other save folder ({0})</value>
+  </data>
+  <data name="History_DeleteBackupButton" xml:space="preserve">
+    <value>Delete backup</value>
+  </data>
+  <data name="History_DeleteBackupTitle" xml:space="preserve">
+    <value>Delete backup</value>
+  </data>
+  <data name="History_DeleteBackupPrompt" xml:space="preserve">
+    <value>Delete the backup of {0} taken {1} ({2} files)? This cannot be undone.</value>
+  </data>
+  <data name="History_DeleteBackupFailed" xml:space="preserve">
+    <value>Delete failed: {0}</value>
+  </data>
 </root>
