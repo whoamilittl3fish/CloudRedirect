@@ -180,9 +180,7 @@ public partial class SyncHistoryPage : Page
         if (listing.Versions.Count == 0)
         {
             await Dialog.ShowInfoAsync(title, S.Get("History_VersionsNone") +
-                (listing.CloudError != null ? "
-
-" + S.Format("History_VersionsCloudError", listing.CloudError) : ""));
+                (listing.CloudError != null ? "\n\n" + S.Format("History_VersionsCloudError", listing.CloudError) : ""));
             return;
         }
         var list = new System.Windows.Controls.ListBox { MaxHeight = 320 };
